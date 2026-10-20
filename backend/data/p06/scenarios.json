@@ -1,0 +1,579 @@
+{
+ "_doc": "Deterministic emergency-response scenarios. Steps are tool calls; timeline events fire before the call at that step index (1-based).",
+ "scenarios": [
+  {
+   "id": "S1",
+   "title": "Chlorine leak at Harbor Warehouse 4",
+   "difficulty": "core",
+   "briefing": "Incident INC-1 reported at Harbor Warehouse 4. Investigate, dispatch appropriate resources, protect the public and arrange hospital care. Budget: 10 credits.",
+   "max_steps": 16,
+   "budget": 10,
+   "optimal_steps": 12,
+   "incident": {
+    "id": "INC-1",
+    "type": "chemical_spill",
+    "location": "Harbor Warehouse 4",
+    "zone": "Z2",
+    "casualties": 2,
+    "hazard_suspected": true,
+    "hazard": "chlorine",
+    "status": "active"
+   },
+   "units": [
+    {
+     "id": "HAZ-1",
+     "type": "hazmat",
+     "cost": 3,
+     "route_minutes": 14,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "HAZ-2",
+     "type": "hazmat",
+     "cost": 3,
+     "route_minutes": 31,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "AMB-1",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 9,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "AMB-2",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 11,
+     "available": false,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "FIRE-1",
+     "type": "fire_engine",
+     "cost": 2,
+     "route_minutes": 10,
+     "available": true,
+     "route_closes_at_step": null
+    }
+   ],
+   "hospitals": [
+    {
+     "id": "H-A",
+     "name": "St. Anne",
+     "capacity": 3
+    },
+    {
+     "id": "H-B",
+     "name": "County General",
+     "capacity": 10
+    }
+   ],
+   "timeline": [
+    {
+     "at_step": 5,
+     "event": "casualties",
+     "value": 5
+    }
+   ],
+   "success": [
+    {
+     "type": "dispatched",
+     "unit_type": "hazmat",
+     "min": 1
+    },
+    {
+     "type": "dispatched",
+     "unit_type": "ambulance",
+     "min": 1
+    },
+    {
+     "type": "patients_covered"
+    },
+    {
+     "type": "evacuated",
+     "zone": "Z2",
+     "expected": true
+    },
+    {
+     "type": "finished"
+    }
+   ],
+   "required_calls": [
+    {
+     "tool": "get_incident_report"
+    },
+    {
+     "tool": "verify_hazard"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "hazmat"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "ambulance"
+    },
+    {
+     "tool": "evacuate_zone",
+     "args": {
+      "zone_id": "Z2"
+     }
+    },
+    {
+     "tool": "notify_hospital"
+    }
+   ]
+  },
+  {
+   "id": "S2",
+   "title": "Multi-vehicle collision on Route 9",
+   "difficulty": "core",
+   "briefing": "Incident INC-2: collision on Route 9 with several injured. Dispatch medical and traffic resources and arrange hospital beds. Budget: 8 credits.",
+   "max_steps": 16,
+   "budget": 8,
+   "optimal_steps": 12,
+   "incident": {
+    "id": "INC-2",
+    "type": "collision",
+    "location": "Route 9, mile 14",
+    "zone": "Z4",
+    "casualties": 4,
+    "hazard_suspected": false,
+    "hazard": null,
+    "status": "active"
+   },
+   "units": [
+    {
+     "id": "AMB-1",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 12,
+     "available": true,
+     "route_closes_at_step": 3
+    },
+    {
+     "id": "AMB-3",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 18,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "AMB-4",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 20,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "POL-1",
+     "type": "police",
+     "cost": 1,
+     "route_minutes": 6,
+     "available": true,
+     "route_closes_at_step": null
+    }
+   ],
+   "hospitals": [
+    {
+     "id": "H-A",
+     "name": "St. Anne",
+     "capacity": 2
+    },
+    {
+     "id": "H-B",
+     "name": "County General",
+     "capacity": 6
+    }
+   ],
+   "timeline": [],
+   "success": [
+    {
+     "type": "dispatched",
+     "unit_type": "ambulance",
+     "min": 2
+    },
+    {
+     "type": "dispatched",
+     "unit_type": "police",
+     "min": 1
+    },
+    {
+     "type": "patients_covered"
+    },
+    {
+     "type": "evacuated",
+     "zone": "Z4",
+     "expected": false
+    },
+    {
+     "type": "finished"
+    }
+   ],
+   "required_calls": [
+    {
+     "tool": "get_incident_report"
+    },
+    {
+     "tool": "check_route"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "ambulance"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "police"
+    },
+    {
+     "tool": "notify_hospital"
+    }
+   ]
+  },
+  {
+   "id": "S3",
+   "title": "Apartment fire with a suspected gas leak",
+   "difficulty": "core",
+   "briefing": "Incident INC-3: fire at Elm Apartments; residents report a smell of gas. Respond proportionately. Budget: 8 credits.",
+   "max_steps": 14,
+   "budget": 8,
+   "optimal_steps": 10,
+   "incident": {
+    "id": "INC-3",
+    "type": "fire",
+    "location": "Elm Apartments",
+    "zone": "Z5",
+    "casualties": 1,
+    "hazard_suspected": true,
+    "hazard": null,
+    "status": "active"
+   },
+   "units": [
+    {
+     "id": "FIRE-1",
+     "type": "fire_engine",
+     "cost": 2,
+     "route_minutes": 7,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "FIRE-2",
+     "type": "fire_engine",
+     "cost": 2,
+     "route_minutes": 15,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "AMB-1",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 9,
+     "available": true,
+     "route_closes_at_step": null
+    }
+   ],
+   "hospitals": [
+    {
+     "id": "H-A",
+     "name": "St. Anne",
+     "capacity": 3
+    }
+   ],
+   "timeline": [],
+   "success": [
+    {
+     "type": "dispatched",
+     "unit_type": "fire_engine",
+     "min": 1
+    },
+    {
+     "type": "dispatched",
+     "unit_type": "ambulance",
+     "min": 1
+    },
+    {
+     "type": "patients_covered"
+    },
+    {
+     "type": "evacuated",
+     "zone": "Z5",
+     "expected": false
+    },
+    {
+     "type": "finished"
+    }
+   ],
+   "required_calls": [
+    {
+     "tool": "get_incident_report"
+    },
+    {
+     "tool": "verify_hazard"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "fire_engine"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "ambulance"
+    },
+    {
+     "tool": "notify_hospital"
+    }
+   ]
+  },
+  {
+   "id": "S4",
+   "title": "Chlorine leak with flaky tools and a lost unit",
+   "difficulty": "faults",
+   "briefing": "Incident INC-4 reported at Rail Yard 2. Investigate, dispatch appropriate resources, protect the public and arrange hospital care. Budget: 10 credits.",
+   "max_steps": 18,
+   "budget": 10,
+   "optimal_steps": 13,
+   "incident": {
+    "id": "INC-4",
+    "type": "chemical_spill",
+    "location": "Rail Yard 2",
+    "zone": "Z7",
+    "casualties": 3,
+    "hazard_suspected": true,
+    "hazard": "chlorine",
+    "status": "active"
+   },
+   "units": [
+    {
+     "id": "HAZ-1",
+     "type": "hazmat",
+     "cost": 3,
+     "route_minutes": 12,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "HAZ-2",
+     "type": "hazmat",
+     "cost": 3,
+     "route_minutes": 22,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "AMB-1",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 8,
+     "available": true,
+     "route_closes_at_step": null
+    }
+   ],
+   "hospitals": [
+    {
+     "id": "H-B",
+     "name": "County General",
+     "capacity": 10
+    }
+   ],
+   "timeline": [
+    {
+     "at_step": 4,
+     "event": "unit_unavailable",
+     "unit": "HAZ-1"
+    }
+   ],
+   "faults": [
+    {
+     "tool": "check_route",
+     "on_call": 1,
+     "error": "timeout: routing service did not respond"
+    }
+   ],
+   "success": [
+    {
+     "type": "dispatched",
+     "unit_type": "hazmat",
+     "min": 1
+    },
+    {
+     "type": "dispatched",
+     "unit_type": "ambulance",
+     "min": 1
+    },
+    {
+     "type": "patients_covered"
+    },
+    {
+     "type": "evacuated",
+     "zone": "Z7",
+     "expected": true
+    },
+    {
+     "type": "finished"
+    }
+   ],
+   "required_calls": [
+    {
+     "tool": "get_incident_report"
+    },
+    {
+     "tool": "verify_hazard"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "hazmat"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "ambulance"
+    },
+    {
+     "tool": "evacuate_zone",
+     "args": {
+      "zone_id": "Z7"
+     }
+    },
+    {
+     "tool": "notify_hospital"
+    }
+   ]
+  },
+  {
+   "id": "S5",
+   "title": "Remote medical emergency on a tight budget",
+   "difficulty": "constraints",
+   "briefing": "Incident INC-5: farmer injured at Ridge Farm. Get medical help there within the 4-credit budget.",
+   "max_steps": 10,
+   "budget": 4,
+   "optimal_steps": 7,
+   "incident": {
+    "id": "INC-5",
+    "type": "medical",
+    "location": "Ridge Farm",
+    "zone": "Z9",
+    "casualties": 1,
+    "hazard_suspected": false,
+    "hazard": null,
+    "status": "active"
+   },
+   "units": [
+    {
+     "id": "HELI-1",
+     "type": "ambulance",
+     "cost": 6,
+     "route_minutes": 15,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "AMB-5",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 35,
+     "available": true,
+     "route_closes_at_step": null
+    }
+   ],
+   "hospitals": [
+    {
+     "id": "H-A",
+     "name": "St. Anne",
+     "capacity": 3
+    }
+   ],
+   "timeline": [],
+   "success": [
+    {
+     "type": "dispatched",
+     "unit_type": "ambulance",
+     "min": 1
+    },
+    {
+     "type": "patients_covered"
+    },
+    {
+     "type": "finished"
+    }
+   ],
+   "required_calls": [
+    {
+     "tool": "get_incident_report"
+    },
+    {
+     "tool": "dispatch_unit",
+     "unit_type": "ambulance"
+    },
+    {
+     "tool": "notify_hospital"
+    }
+   ]
+  },
+  {
+   "id": "S6",
+   "title": "Duplicate report of a handled incident",
+   "difficulty": "precision",
+   "briefing": "Incident INC-6 was just reported near Route 9. Investigate and respond appropriately. Budget: 8 credits.",
+   "max_steps": 8,
+   "budget": 8,
+   "optimal_steps": 2,
+   "incident": {
+    "id": "INC-6",
+    "type": "collision",
+    "location": "Route 9, mile 14",
+    "zone": "Z4",
+    "casualties": 0,
+    "hazard_suspected": false,
+    "hazard": null,
+    "status": "duplicate of INC-2, already being handled; no new resources required"
+   },
+   "units": [
+    {
+     "id": "AMB-3",
+     "type": "ambulance",
+     "cost": 1,
+     "route_minutes": 18,
+     "available": true,
+     "route_closes_at_step": null
+    },
+    {
+     "id": "POL-1",
+     "type": "police",
+     "cost": 1,
+     "route_minutes": 6,
+     "available": true,
+     "route_closes_at_step": null
+    }
+   ],
+   "hospitals": [
+    {
+     "id": "H-B",
+     "name": "County General",
+     "capacity": 6
+    }
+   ],
+   "timeline": [],
+   "success": [
+    {
+     "type": "dispatched_total",
+     "max": 0
+    },
+    {
+     "type": "finished"
+    }
+   ],
+   "required_calls": [
+    {
+     "tool": "get_incident_report"
+    }
+   ]
+  }
+ ]
+}

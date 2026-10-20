@@ -1,0 +1,14 @@
+{"_doc": "General-capability slice for catastrophic-forgetting checks. Scored by case-insensitive substring match.", "items": [
+ {"q": "What is the capital of France? Answer in one word.", "a": ["paris"]},
+ {"q": "What is 7 plus 5? Answer with a number.", "a": ["12", "twelve"]},
+ {"q": "What color is the sky on a clear day? One word.", "a": ["blue"]},
+ {"q": "How many days are in a week? Answer with a number.", "a": ["7", "seven"]},
+ {"q": "What is the opposite of hot? One word.", "a": ["cold"]},
+ {"q": "Which planet do we live on? One word.", "a": ["earth"]},
+ {"q": "What is the plural of 'cat'?", "a": ["cats"]},
+ {"q": "Name the largest ocean on Earth.", "a": ["pacific"]},
+ {"q": "What gas do humans need to breathe to survive? One word.", "a": ["oxygen"]},
+ {"q": "What is 10 minus 3? Answer with a number.", "a": ["7", "seven"]},
+ {"q": "What do bees make? One word.", "a": ["honey"]},
+ {"q": "What is the first letter of the English alphabet?", "a": ["a"]}
+]}

@@ -1,0 +1,12 @@
+{
+  "_note": "USD per 1M tokens. 'verified' = read from the provider's official docs on the given date. Unverified prices are shown in the UI as such; edit when you confirm them.",
+  "groq": {
+    "openai/gpt-oss-20b": {"input": 0.075, "output": 0.30, "verified": true, "source": "https://console.groq.com/docs/models", "checked": "2026-10-20"},
+    "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60, "verified": true, "source": "https://console.groq.com/docs/models", "checked": "2026-10-20"},
+    "meta-llama/llama-prompt-guard-2-86m": {"input": 0.04, "output": 0.04, "verified": true, "source": "https://console.groq.com/docs/models", "checked": "2026-10-20"}
+  },
+  "deepseek": {
+    "deepseek-flash": {"input": 0.14, "cached_input": 0.0028, "output": 0.28, "verified": false, "source": "secondary sources (official pricing page not retrievable 2026-10-20)", "checked": "2026-10-20"},
+    "deepseek-v4-pro": {"input": 1.74, "cached_input": 0.0145, "output": 3.48, "verified": false, "source": "secondary sources (official pricing page not retrievable 2026-10-20)", "checked": "2026-10-20"}
+  }
+}

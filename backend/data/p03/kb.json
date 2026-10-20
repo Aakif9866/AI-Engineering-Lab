@@ -1,0 +1,33 @@
+{
+  "_doc": "Nimbus Notes help-center FAQ. scope: global (same answer for everyone), user (depends on the asking user's account), volatile (changes minute to minute; never cache). group: intents that are easy to confuse.",
+  "articles": [
+    {"id": "refund_within_30", "group": "refund", "scope": "global", "title": "Refunds within 30 days", "answer": "If you cancel within 30 days of purchase you get a full refund to your original payment method, no questions asked.",
+     "questions": ["Can I get a refund within 30 days of purchase?", "I bought Pro two weeks ago, can I get my money back?", "Is there a 30-day money-back guarantee?", "how do refunds work if I cancel in the first month"]},
+    {"id": "refund_after_30", "group": "refund", "scope": "global", "title": "Refunds after 30 days", "answer": "After 30 days we don't issue cash refunds; instead we credit the unused part of your subscription to your account.",
+     "questions": ["Can I get a refund after 30 days?", "I bought Pro three months ago, can I get my money back?", "Is a refund possible after the first month?", "what happens with refunds if I cancel after 30 days"]},
+    {"id": "reset_password", "group": "account", "scope": "global", "title": "Reset your password", "answer": "Click 'Forgot password' on the sign-in page and follow the link we email you; the link expires after 1 hour.",
+     "questions": ["How do I reset my password?", "I forgot my password, what do I do?", "password reset steps", "can't remember my login password"]},
+    {"id": "change_email", "group": "account", "scope": "global", "title": "Change your account email", "answer": "Go to Settings > Account > Email, enter the new address and confirm it from the verification email.",
+     "questions": ["How do I change my account email address?", "I want to use a different email for my login", "update the email on my account", "how to switch my sign-in email"]},
+    {"id": "export_notes", "group": "data", "scope": "global", "title": "Export your notes", "answer": "Use File > Export to download notes as Markdown or PDF; exporting a whole notebook produces a ZIP file.",
+     "questions": ["How can I export my notes?", "Can I download all my notes as files?", "export notebook to markdown", "how do I get my notes out of Nimbus"]},
+    {"id": "import_evernote", "group": "data", "scope": "global", "title": "Import from Evernote", "answer": "Export an .enex file from Evernote, then use File > Import > Evernote in Nimbus; tags and attachments are kept.",
+     "questions": ["Can I import notes from Evernote?", "moving from Evernote to Nimbus", "how to bring my Evernote notebooks over", "does Nimbus support Evernote import"]},
+    {"id": "pricing_pro", "group": "pricing", "scope": "global", "title": "Pro plan price", "answer": "The Pro plan costs $8 per month, or $80 per year when billed annually.",
+     "questions": ["How much does the Pro plan cost?", "What's the price of Nimbus Pro?", "pro subscription monthly cost", "how expensive is the Pro tier"]},
+    {"id": "pricing_team", "group": "pricing", "scope": "global", "title": "Team plan price", "answer": "The Team plan costs $15 per user per month, with a minimum of 3 users.",
+     "questions": ["How much does the Team plan cost?", "What's the price of Nimbus Team?", "team subscription per user cost", "how expensive is the Team tier"]},
+    {"id": "offline_mode", "group": "features", "scope": "global", "title": "Offline mode", "answer": "Yes. Notes you've opened recently are available offline on desktop and mobile, and changes sync when you reconnect.",
+     "questions": ["Does Nimbus work offline?", "can I use the app without internet", "offline access to notes", "what happens if I lose my connection while editing"]},
+    {"id": "storage_free", "group": "storage", "scope": "global", "title": "Free plan storage", "answer": "The Free plan includes 2 GB of storage across all notebooks.",
+     "questions": ["What is the storage limit on the free plan?", "how much space do free accounts get", "free tier storage quota", "storage cap for non-paying users"]},
+    {"id": "storage_pro", "group": "storage", "scope": "global", "title": "Pro plan storage", "answer": "The Pro plan includes 100 GB of storage across all notebooks.",
+     "questions": ["What is the storage limit on the Pro plan?", "how much space do Pro accounts get", "pro tier storage quota", "storage cap for Pro subscribers"]},
+    {"id": "my_renewal", "group": "account_personal", "scope": "user", "title": "Your renewal date", "answer": "Your plan renews on {renewal}.",
+     "questions": ["When does my plan renew?", "what's my next billing date", "when will I be charged again for my subscription", "my subscription renewal date"]},
+    {"id": "service_status", "group": "status", "scope": "volatile", "title": "Service status", "answer": "Live status: {status}.",
+     "questions": ["Is Nimbus down right now?", "is there an outage currently", "are you having problems today", "service status at the moment"]}
+  ],
+  "unrelated": ["What's the weather in Paris tomorrow?", "Write me a haiku about autumn", "Who won the football match last night?", "How do I bake sourdough bread?", "What is the capital of Australia?"],
+  "users": {"u1": {"plan": "Pro", "renewal": "3 November 2026"}, "u2": {"plan": "Team", "renewal": "15 January 2027"}, "u3": {"plan": "Free", "renewal": "never (Free plan)"}}
+}

@@ -1,0 +1,7 @@
+# Core: everything except fine-tuning runs with these.
+fastapi==0.153.0      # HTTP API, one router per pattern
+uvicorn==0.54.0       # ASGI server
+httpx==0.28.1         # provider client (DeepSeek + Groq are OpenAI-compatible; no SDK needed)
+pydantic==2.14.1      # schemas: tool arguments, model outputs, API inputs
+numpy==2.2.6          # vectors, percentiles, PSI
+pytest==9.1.1         # test suite

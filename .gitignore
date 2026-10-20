@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+frontend/dist/
+backend/var/
+.DS_Store
+
+# Reference guide (third-party, kept local)
+7_AI_Design_Patterns_Interview_Guide.pdf

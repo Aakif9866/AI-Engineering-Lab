@@ -1,0 +1,7 @@
+# Local ML: real embeddings (RAG, semantic cache) and LoRA fine-tuning. ~900 MB installed.
+# Without these, the lab still runs: embeddings fall back to the hash embedder (shown in the UI)
+# and IntentForge supports dataset building and the rules baseline only.
+torch==2.14.1                  # tensors + training loop
+transformers==5.20.2           # SmolLM2-135M-Instruct base model
+peft==0.21.2                   # LoRA adapters
+sentence-transformers==6.1.0   # all-MiniLM-L6-v2 embeddings, optional cross-encoder reranker
