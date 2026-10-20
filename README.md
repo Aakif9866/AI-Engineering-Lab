@@ -93,7 +93,7 @@ backend/   FastAPI
 
 Deliberately **not** used: vector databases (about 50 chunks fit an exact numpy scan; ANN is on the V2 list), LangChain or agent frameworks (the loops are short and inspectable), Redis (SQLite covers single-node state), TRL (the training loop is 30 explicit lines).
 
-**Providers** (verified 2026-10-20). DeepSeek: base `https://api.deepseek.com`, models `deepseek-flash` and `deepseek-v4-pro` (confirmed live through `GET /models`). Groq: base `https://api.groq.com/openai/v1`, production models `openai/gpt-oss-20b`, `openai/gpt-oss-120b` and `meta-llama/llama-prompt-guard-2-86m`. Groq prices come from its official model table; DeepSeek prices could not be confirmed from the official page and are marked **unverified** everywhere they appear (`backend/lab/core/pricing.json`). Groq integration is implemented and unit-tested against a mocked transport, but **untested against the live API**: no Groq key was available.
+**Providers** (verified 2026-10-20). DeepSeek: base `https://api.deepseek.com`, models `deepseek-flash` and `deepseek-v4-pro` (confirmed live through `GET /models`). Groq: base `https://api.groq.com/openai/v1`, production models `openai/gpt-oss-20b`, `openai/gpt-oss-120b` and `meta-llama/llama-prompt-guard-2-86m`. Groq prices come from its official model table; DeepSeek prices could not be confirmed from the official page and are marked **unverified** everywhere they appear (`backend/lab/core/pricing.json`). Groq was verified live on 2026-10-20 in every workspace (results below).
 
 ---
 
@@ -279,6 +279,23 @@ The span store every other workspace writes to.
 
 ---
 
+## Groq (`openai/gpt-oss-20b`) vs DeepSeek (`deepseek-flash`), measured live
+
+| Workspace | Groq | DeepSeek |
+|---|---|---|
+| RAG benchmark: accuracy / correct abstention | 95% / 100% | 100% / 100% |
+| IntentForge prompted baseline: exact match (test / OOD) | 34% / 40% ($0.0078) | 54% / 45% ($0.011) |
+| TrustBoundary adversarial corpus (LLM planner) | 30/30 | 30/30 in 6 of 8 runs |
+| MissionReplay agent, 6 scenarios | **1/6** | 6/6 |
+| Prompt Guard detector (Groq only) | classic injection 0.999; polite exfiltration 0.0005 (missed; the heuristic caught it) | – |
+
+Testing against Groq found three real problems, all fixed with regression tests:
+1. **Malformed tool calls.** `gpt-oss` sometimes emits tool-call arguments that aren't valid JSON, and Groq rejects them server-side with HTTP 400 `tool_use_failed`. The agent used to abort; now the error is recorded as an invalid-argument step and fed back so the model can retry.
+2. **Typographic Unicode.** `gpt-oss` writes `R‑17`, `30 minutes` and `【S1】`, which made correct answers fail string checks and citations go unparsed. Model output is now canonicalised. Before the fix, Groq's RAG accuracy read 75% instead of 95%.
+3. **Environment variable name.** The key was set as `GROQ_API`; the lab expects `GROQ_API_KEY` (see `.env.example`).
+
+The Groq agent's low score is real model behaviour, not an integration fault: in S4 it confirmed the chlorine hazard and then concluded "no evacuation required"; in S5 it never booked a hospital bed.
+
 ## Cost and API handling
 
 - Keys are read only from the environment, never logged, never returned by the API (`/api/status` exposes only configured or usable flags), and scrubbed from error messages and spans.
@@ -308,6 +325,5 @@ Each workspace has two plain-language guides in its module folder: **README.md**
 
 - Single-user local application: no authentication. Roles in TrustBoundary are selected in the UI to demonstrate backend enforcement.
 - SQLite and in-process indexes are sized for a laptop. Every module states its own scaling path in V2.
-- Groq paths are implemented and tested with mocks but unverified against the live API (no key during development).
 - DeepSeek prices are unverified (see Architecture).
 - Deployment is out of scope.

@@ -164,3 +164,10 @@ def test_benchmark_runs_offline_and_reports_split_metrics():
     assert 0 < res["retrieval"]["recall@5"] <= 1 and 0 < res["retrieval"]["mrr"] <= 1
     assert res["answers"]["abstention_on_unanswerable"] >= 0.5
     assert res["answers"]["citation_validity"] == 1.0  # extractive generator only cites provided sources
+
+
+def test_typographic_unicode_from_models_is_canonicalised():
+    from lab.p01_rag.generate import canonical
+    t = canonical("Unit R\u201117 and lot VX\u201188213, 30\u202fminutes \u3010S1\u3011")
+    assert t == "Unit R-17 and lot VX-88213, 30 minutes [S1]"
+    assert answer_correct("lot VX\u201188213", [["VX-88213"]])

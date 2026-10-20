@@ -32,6 +32,15 @@ class Recorder:
                            "latency_ms": round((time.perf_counter() - t0) * 1000, 2), "usage": usage or {}})
         return r
 
+    def malformed(self, raw: str, usage: dict | None = None) -> None:
+        """Record a tool call the provider could not even parse: it uses a step and counts as invalid arguments."""
+        self.sim._advance()
+        with tracing.span("tool.(unparseable)", kind="tool", module="missionreplay", arguments=raw) as sp:
+            sp.fail("invalid_arguments", "model produced unparseable tool-call JSON")
+        self.steps.append({"step": self.sim.step, "tool": "(unparseable)", "args": {"_raw": raw[:300]}, "thought": "", "ok": False,
+                           "args_valid": False, "error": "model produced tool-call arguments that are not valid JSON",
+                           "observation": None, "latency_ms": 0.0, "usage": usage or {}})
+
 
 def careful(rec: Recorder, sc: dict) -> None:
     inc = sc["incident"]["id"]
@@ -99,10 +108,21 @@ Be efficient: avoid repeated calls with identical arguments."""
 
 def llm(rec: Recorder, sc: dict, provider: str | None, temperature: float, model: str | None = None) -> None:
     msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": f"{sc['briefing']} Incident id: {sc['incident']['id']}."}]
-    nudged = False
+    nudged, malformed_in_a_row = False, 0
     while rec.sim.step < sc["max_steps"] and not rec.sim.finished:
-        r = providers.chat(msgs, provider=provider, model=model, temperature=temperature, max_tokens=1500, tools=openai_tools(),
-                           module="missionreplay", prompt_version="agent-v1")
+        try:
+            r = providers.chat(msgs, provider=provider, model=model, temperature=temperature, max_tokens=1500, tools=openai_tools(),
+                               module="missionreplay", prompt_version="agent-v1")
+        except providers.MalformedToolCall as e:
+            # Count it (argument validity) and let the model correct itself; give up after 3 in a row.
+            rec.malformed(e.failed_generation)
+            malformed_in_a_row += 1
+            if malformed_in_a_row >= 3:
+                raise
+            msgs.append({"role": "user", "content": "Your last tool call had arguments that were not valid JSON "
+                                                    f"({e.failed_generation[:200]}). Call the tool again with valid JSON arguments."})
+            continue
+        malformed_in_a_row = 0
         usage = {"input_tokens": r.input_tokens, "output_tokens": r.output_tokens, "cost_usd": r.cost_usd, "latency_ms": round(r.latency_ms, 1)}
         if not r.tool_calls:
             if nudged:

@@ -99,3 +99,22 @@ def test_batch_summary_and_listing():
     assert len(ev.list_runs()) == 4
     got = ev.get_run(res["runs"][0]["id"])
     assert got["run"]["steps"] and got["eval"]["predicates"]
+
+
+def test_malformed_tool_call_is_counted_and_recovered(fake_provider):
+    """Groq rejects unparseable tool-call JSON with HTTP 400 tool_use_failed: the agent must recover, not abort."""
+    import httpx
+    calls = []
+
+    def handler(req):
+        calls.append(json.loads(req.content))
+        if len(calls) == 1:
+            return httpx.Response(400, json={"error": {"message": "Failed to parse tool call arguments as JSON", "code": "tool_use_failed",
+                                                       "failed_generation": '{"name": "get_incident_report", "arguments": {"incident_id": INC-6?}}'}})
+        name, args = [("get_incident_report", {"incident_id": "INC-6"}), ("finish", {"summary": "Duplicate report; nothing to dispatch."})][len(calls) - 2]
+        return completion("", tool_calls=[{"id": f"c{len(calls)}", "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}])
+    fake_provider(handler)
+    r = ev.run_and_store("S6", "llm", provider="deepseek")
+    assert r["run"]["error"] is None and r["eval"]["success"]
+    assert r["run"]["steps"][0]["tool"] == "(unparseable)" and r["eval"]["argument_validity"] < 1
+    assert "not valid JSON" in calls[1]["messages"][-1]["content"]  # the error was fed back to the model

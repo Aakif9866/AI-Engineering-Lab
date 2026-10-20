@@ -39,6 +39,17 @@ class RateLimited(ProviderError):
     error_type = "rate_limit"
 
 
+class MalformedToolCall(ProviderError):
+    """The model produced tool-call arguments that are not valid JSON, and the provider rejected the
+    request server-side (Groq: HTTP 400, code tool_use_failed). A model mistake, not a transport error:
+    agents should feed it back and let the model correct itself."""
+    error_type = "malformed_tool_call"
+
+    def __init__(self, message: str, failed_generation: str = ""):
+        super().__init__(message)
+        self.failed_generation = failed_generation
+
+
 @dataclass
 class ChatResult:
     text: str
@@ -144,7 +155,14 @@ def chat(messages: list[dict], provider: str | None = None, model: str | None = 
                     elif r.status_code >= 500:
                         last = ProviderError(f"{provider} server error {r.status_code}: {detail}")
                         wait = min(2 ** attempt, 8)
-                    else:  # 4xx other than 429: retrying will not help
+                    else:  # 4xx other than 429: retrying the identical request will not help
+                        try:
+                            err = r.json().get("error") or {}
+                        except ValueError:
+                            err = {}
+                        if err.get("code") == "tool_use_failed":
+                            raise MalformedToolCall(f"{provider}: model produced unparseable tool-call arguments",
+                                                    scrub_secrets(str(err.get("failed_generation", ""))[:500]))
                         raise ProviderError(f"{provider} rejected request ({r.status_code}): {detail}")
                 if attempt <= retries:
                     tracing.event("llm.retry", kind="retry", attempt=attempt, reason=str(last))

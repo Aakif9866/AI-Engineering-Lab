@@ -35,6 +35,17 @@ class Answer:
     prompt: list = field(default_factory=list)
 
 
+_DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"), "-")
+
+
+def canonical(text: str) -> str:
+    """Normalise typographic Unicode some models emit (gpt-oss writes `R\u201117`, `30\u202fminutes`,
+    `\u3010S1\u3011`). Without this, correct answers fail string checks and citations go unparsed."""
+    import unicodedata
+    text = unicodedata.normalize("NFKC", text).translate(_DASHES)
+    return re.sub(r"[\u3010\uff3b]\s*(S\d+)\s*[\u3011\uff3d]", r"[\1]", text)
+
+
 def build_messages(question: str, hits: list[Hit]) -> list[dict]:
     blocks = []
     for n, h in enumerate(hits, 1):
@@ -95,7 +106,7 @@ def llm(question: str, hits: list[Hit], provider: str | None) -> Answer:
     # finish_reason == "length" is surfaced as a truncation failure rather than a normal answer.
     r = providers.chat(msgs, provider=provider, temperature=0.0, max_tokens=1500, module="rag",
                        prompt_version=PROMPT_VERSION)
-    text = r.text.strip()
+    text = canonical(r.text.strip())
     truncated = r.finish_reason == "length"
     return Answer(text, text.startswith(ABSTAIN), f"llm:{r.provider}/{r.model}", prompt=msgs,
                   reason="answer truncated by max_tokens" if truncated else "",

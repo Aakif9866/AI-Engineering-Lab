@@ -77,5 +77,5 @@ Real findings from the DeepSeek runs:
 ## Limits and next steps
 
 - Heuristic detection misses novel phrasing; the report lists every miss instead of hiding it.
-- The Groq Prompt Guard signal is wired in but not yet tested live (no Groq key).
+- Groq Prompt Guard was verified live: injection 0.999, benign 0.0005, but it **missed** the polite exfiltration email (0.0005) that the heuristic flagged (0.55). Detectors cover different attacks; neither is the boundary.
 - **V2:** versioned policies, learned risk scores, auto-generated attack variants, a red-team trend dashboard.

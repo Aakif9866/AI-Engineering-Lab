@@ -42,7 +42,8 @@ def retrieval_metrics(ranked_docs: list[str], support: list[str], k: int) -> dic
 
 
 def answer_correct(text: str, must_contain: list[list[str]]) -> bool:
-    t = text.lower()
+    from .generate import canonical
+    t = canonical(text).lower()
     return all(any(alt.lower() in t for alt in group) for group in must_contain)
 
 

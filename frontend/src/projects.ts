@@ -97,7 +97,7 @@ export const PROJECTS: Project[] = [
       "Heuristic detection caught 45% of attacks in the corpus; enforcement held on 100%. The report lists every detector miss.",
       "Running the corpus with DeepSeek as the planner found a real gap: the model reported a beacon as a plain-text URL, which the output guardrail didn't catch. It's now fixed by defanging external hosts. LLM-planner results vary run to run (29 or 30 of 30 after the fix).",
       "The offline 'compromised model' is a simulation that deliberately obeys embedded instructions to exercise enforcement.",
-      "The model-based detector (Groq Prompt Guard) is wired in but unverified until a GROQ_API_KEY is configured.",
+      "Groq Prompt Guard (verified live) scored a classic injection 0.999 but missed a polite exfiltration email (0.0005) that the heuristic flagged: detectors complement each other, and neither is the boundary.",
     ],
     v2: ["Versioned policies with diff and rollback", "Learned risk scoring", "Adversarial regression generation", "Red-team results dashboard over time"],
   },
