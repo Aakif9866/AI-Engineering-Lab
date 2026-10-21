@@ -15,6 +15,9 @@ models:           ## pre-download the two small local models (~360 MB)
 backend:          ## API on http://127.0.0.1:8000
 	cd backend && .venv/bin/uvicorn lab.api:app --host 127.0.0.1 --port 8000
 
+dev:              ## backend + frontend together (Ctrl-C stops both)
+	$(MAKE) -j2 backend frontend
+
 frontend:         ## UI on http://localhost:5173 (proxies /api to the backend)
 	cd frontend && npm run dev
 
@@ -31,4 +34,4 @@ experiments:      ## offline benchmark/experiment commands for every module
 	cd backend && .venv/bin/python -m lab.p04_guardrails.adversarial
 	cd backend && .venv/bin/python -m lab.p06_agent_evals.evaluate
 
-.PHONY: setup setup-core models backend frontend test typecheck experiments
+.PHONY: setup setup-core models backend frontend dev test typecheck experiments

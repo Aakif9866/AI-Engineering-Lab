@@ -16,6 +16,18 @@ The curriculum follows *Seven Design Patterns: A Technical Reference for AI Engi
 
 ---
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Overview: all seven workspaces with live traced-request stats](docs/screenshots/01-overview.png)<br>Overview: all seven workspaces with live traced-request stats | ![Evidence Atlas: hybrid retrieval, verified citations, per-passage scores](docs/screenshots/02-evidence-atlas-answer.png)<br>Evidence Atlas: hybrid retrieval, verified citations, per-passage scores |
+| ![Evidence Atlas: 24-question benchmark, retrieval vs answer metrics](docs/screenshots/03-evidence-atlas-benchmark.png)<br>Evidence Atlas: 24-question benchmark, retrieval vs answer metrics | ![IntentForge: dataset cleaning, dedup and hash-based splits](docs/screenshots/04-intentforge-dataset.png)<br>IntentForge: dataset cleaning, dedup and hash-based splits |
+| ![CacheCraft: no cache vs exact vs semantic on a labelled workload](docs/screenshots/05-cachecraft-workload.png)<br>CacheCraft: no cache vs exact vs semantic on a labelled workload | ![TrustBoundary: prompt injection blocked at the input guardrail](docs/screenshots/06-trustboundary-pipeline.png)<br>TrustBoundary: prompt injection blocked at the input guardrail |
+| ![TrustBoundary: 30-case adversarial corpus, which layer stopped each attack](docs/screenshots/07-trustboundary-adversarial.png)<br>TrustBoundary: 30-case adversarial corpus, which layer stopped each attack | ![MissionReplay: scored agent trajectory, step by step](docs/screenshots/08-missionreplay-trajectory.png)<br>MissionReplay: scored agent trajectory, step by step |
+| ![SignalLoop: clustered feedback review queue](docs/screenshots/09-signalloop-review-queue.png)<br>SignalLoop: clustered feedback review queue | ![TraceLens: span tree of an LLM agent run with tokens and cost](docs/screenshots/10-tracelens-trace.png)<br>TraceLens: span tree of an LLM agent run with tokens and cost |
+
+---
+
 ## Quick start
 
 **Prerequisites:** Python 3.10+, Node 18+, [uv](https://github.com/astral-sh/uv) (or pip), about 1.5 GB of disk for the ML extras and models. Built and tested on macOS (Apple M1, 8 GB RAM).
@@ -25,9 +37,10 @@ cp .env.example .env          # optional: add DEEPSEEK_API_KEY and/or GROQ_API_K
 make setup                    # backend venv + core and ML deps + frontend deps
 make models                   # optional: pre-download MiniLM (~90 MB) + SmolLM2-135M (~270 MB)
 
-make backend                  # terminal 1 → http://127.0.0.1:8000  (API docs at /docs)
-make frontend                 # terminal 2 → http://localhost:5173
+make dev                      # backend http://127.0.0.1:8000 (docs at /docs) + UI http://localhost:5173; Ctrl-C stops both
 ```
+
+Prefer two terminals? `make backend` and `make frontend` run each half on its own.
 
 Short on disk? `make setup-core` skips torch. Every workspace still works: embeddings fall back to a hash embedder (the header says so), and IntentForge offers dataset building and the rules baseline but no training.
 
