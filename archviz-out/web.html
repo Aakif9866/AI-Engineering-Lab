@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archviz</title>
+<style>
+  :root { --bg:#070914; --panel:#11152bcc; --text:#e8ebff; --muted:#9aa3c7; --line:#2a3160; --accent:#7c8cff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; overflow:hidden; }
+  #scene { position:fixed; inset:0; }
+  .panel { position:fixed; background:var(--panel); backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  #top { top:12px; left:12px; max-width:min(400px, calc(100vw - 24px)); max-height:40vh; overflow:auto; }
+  #top h1 { margin:0 0 6px; font-size:20px; }
+  #top p { margin:0 0 8px; color:var(--muted); font-size:13px; line-height:1.5; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .chip { font-size:11px; padding:3px 8px; border-radius:99px; background:#ffffff14; border:1px solid var(--line); }
+  #crumbs { top:12px; left:50%; transform:translateX(-50%); padding:8px 14px; font-size:13px; text-align:center; max-width:calc(100vw - 880px); min-width:240px; }
+  #crumbs .hint { font-size:11px; color:var(--muted); margin-top:3px; }
+  #legend { bottom:12px; left:12px; font-size:12px; display:flex; flex-direction:column; gap:4px; max-height:40vh; overflow:auto; }
+  #legend .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; box-shadow:0 0 8px currentColor; background:currentColor; }
+  #legend .ln { display:inline-block; width:22px; height:0; margin-right:6px; vertical-align:middle; border-top:2px solid #9aa3c7; }
+  #legend hr { border:0; border-top:1px solid var(--line); width:100%; margin:4px 0; }
+  #details { top:12px; right:12px; width:min(380px, calc(100vw - 24px)); max-height:calc(100vh - 230px); overflow:auto; display:none; }
+  #details h2 { margin:0 0 4px; font-size:17px; }
+  #details .path { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); word-break:break-all; }
+  #details p, #details li { font-size:13px; line-height:1.55; }
+  #details ul { padding-left:18px; margin:6px 0; }
+  #details h3 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:14px 0 4px; }
+  .analogy { border-left:3px solid var(--accent); padding-left:10px; color:#cfd5ff; font-style:italic; }
+  .why-inferred { border-left:3px solid #ffd84d; padding-left:10px; color:#ffe98a; }
+  .ev { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); word-break:break-all; }
+  .kind { font-size:11px; color:var(--muted); }
+  .badge { display:inline-block; font-size:10px; font-weight:600; padding:2px 7px; border-radius:99px; text-transform:uppercase; letter-spacing:.06em; vertical-align:middle; margin-right:4px; }
+  .b-verified { background:#2ee6a62e; color:#7ff5c9; } .b-inferred { background:#ffd84d2e; color:#ffe98a; }
+  .b-request { background:#ffffff22; color:#fff; } .b-response { background:#4fc3ff2e; color:#9fe0ff; }
+  .b-planned { background:#9aa3c72e; color:#c9cfe8; } .b-optional { background:#5ce1e62e; color:#a5f0f2; }
+  .b-internal { background:#b36bff2e; color:#d6b3ff; } .b-async { background:#ff5cf02e; color:#ff9cf6; } .b-error { background:#ff4d4d2e; color:#ff9a9a; }
+  .linkbtn { background:none; border:0; padding:0; color:var(--accent); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+  .close { float:right; background:none; border:0; color:var(--muted); font-size:20px; cursor:pointer; }
+  #flowbar { bottom:12px; right:12px; width:min(480px, calc(100vw - 24px)); max-height:42vh; overflow:auto; }
+  #flowbar .controls { display:flex; gap:6px; flex-wrap:wrap; }
+  select, button { font:inherit; font-size:13px; color:var(--text); background:#1b2146; border:1px solid var(--line); border-radius:8px; padding:6px 10px; cursor:pointer; }
+  button:hover, select:hover { border-color:var(--accent); }
+  #details button.linkbtn, #crumbs button.linkbtn { border:0; background:none; padding:0; }
+  #caption { margin-top:10px; font-size:14px; line-height:1.55; min-height:44px; }
+  #caption .step { color:var(--accent); font-weight:600; font-size:12px; display:block; margin-bottom:2px; }
+  #caption .carries { font-size:12px; color:#cfd5ff; margin-top:4px; }
+  .label { color:#fff; font-size:12px; padding:2px 7px; border-radius:6px; background:#0009; white-space:nowrap; pointer-events:none; text-shadow:0 0 6px #000; }
+  .label.ghost { opacity:.55; }
+  .label.dim { opacity:.2; }
+  .layerTitle { font-size:13px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; opacity:.55; pointer-events:none; }
+  #err { position:fixed; inset:0; display:none; place-items:center; text-align:center; padding:24px; color:var(--muted); }
+  @media (max-width:1100px) { #crumbs { top:auto; bottom:calc(42vh + 24px); left:12px; transform:none; max-width:calc(100vw - 24px); } }
+  @media (max-width:700px) { #legend { display:none; } #top { max-height:28vh; } #crumbs .hint { display:none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="scene"></div>
+<div id="crumbs" class="panel"></div>
+<div id="top" class="panel">
+  <h1 id="title"></h1><p id="summary"></p><div class="chips" id="stack"></div>
+  <button id="aboutBtn">About this system</button>
+</div>
+<div id="legend" class="panel"></div>
+<div id="details" class="panel"></div>
+<div id="flowbar" class="panel">
+  <div class="controls">
+    <select id="flowSel" aria-label="Choose a workflow"></select>
+    <button id="play">▶ Play</button>
+    <button id="prev" aria-label="Previous step">◀</button>
+    <button id="next" aria-label="Next step">▶|</button>
+    <button id="reset">Reset view</button>
+  </div>
+  <div id="caption"></div>
+</div>
+<div id="err">Couldn't load the 3D library (needs internet for the CDN).<br>The data is still inside this file.</div>
+
+<script id="archviz-data" type="application/json">{"project": "AI Engineering Lab: web system", "summary": "How the browser UI, the Vite dev proxy, the FastAPI backend, local storage and the LLM providers work together end to end.", "stack": ["React 18 + TypeScript", "react-router 6", "Tailwind 3", "Vite 5 dev server (proxy)", "FastAPI + uvicorn", "SQLite", "httpx → DeepSeek / Groq"], "architecture": {"style": "Client–server web app run locally: React SPA → Vite dev proxy → one FastAPI process (+ a subprocess for training) → SQLite and files, with optional paid LLM APIs", "summary": "The browser loads a React single-page app from the Vite dev server on :5173. Every page talks to the backend through one small fetch helper (api.ts) using relative /api/... paths. Vite forwards those to FastAPI on :8000, so the browser never sees API keys and never needs CORS. FastAPI routes each request to one lab module, which reads and writes SQLite/files and may call DeepSeek or Groq. Long work (LoRA training) runs in a separate process, and the page polls for progress.", "deployables": [{"name": "Vite dev server", "what": "Serves the React app on :5173 and proxies /api to the backend", "evidence": ["frontend/vite.config.ts:5-8", "Makefile:21-22"]}, {"name": "FastAPI (uvicorn)", "what": "JSON API on 127.0.0.1:8000", "evidence": ["Makefile:15-16", "backend/lab/api.py:17-21"]}, {"name": "make dev", "what": "Starts both halves together; Ctrl-C stops both", "evidence": ["Makefile:18-19"]}], "unknowns": ["No production build hosting or deployment config: the app is only run locally with `make dev`.", "No authentication: roles (analyst, reviewer…) are chosen in the UI and enforced by the backend, but nothing proves who the user is.", "A production build (`vite build`) has no proxy; how /api would be served in that setup isn't defined in the repo."]}, "groups": [{"id": "browser", "name": "Browser", "what": "Runs on the user's machine in the browser tab", "color": "#22c55e"}, {"id": "devserver", "name": "Dev server", "what": "Vite: serves the UI and forwards API calls", "color": "#a855f7"}, {"id": "server", "name": "Backend server", "what": "The FastAPI process and its subprocesses", "color": "#3b82f6"}, {"id": "data", "name": "Local data", "what": "SQLite databases and files on disk", "color": "#0ea5e9"}, {"id": "ext", "name": "External services", "what": "Paid LLM APIs and downloaded models", "color": "#ef4444"}], "nodes": [{"id": "ui", "kind": "subsystem", "group": "browser", "label": "React app (SPA)", "path": "frontend/src", "what": "The single-page app: one layout with a sidebar, an overview page, and one page per lab.", "why": "It turns each lab's JSON into something you can click, compare and read. Without it you'd use curl or the /docs page.", "analogy": "The dashboard of a car: it shows what the engine (backend) is doing and gives you the controls.", "responsibilities": ["Route URLs to pages", "Call the API and show loading/error states", "Poll long jobs", "Remember the theme"], "data": {"owns": ["UI state (forms, selections)", "theme in localStorage"], "receives": ["JSON from /api/*"], "produces": ["JSON request bodies"]}, "evidence": ["frontend/src/App.tsx:13-31"]}, {"id": "ui.boot", "kind": "component", "parent": "ui", "label": "index.html + main.tsx", "path": "frontend/src/main.tsx", "what": "Sets dark mode before paint from localStorage, then mounts <App/> into #root.", "evidence": ["frontend/index.html:7-13", "frontend/src/main.tsx:6-10"]}, {"id": "ui.router", "kind": "component", "parent": "ui", "label": "App.tsx (routes)", "path": "frontend/src/App.tsx", "what": "Maps URLs like /evidence-atlas or /tracelens to page components inside the shared Layout.", "evidence": ["frontend/src/App.tsx:15-29"]}, {"id": "ui.layout", "kind": "component", "parent": "ui", "label": "Layout.tsx (shell + status)", "path": "frontend/src/components/Layout.tsx", "what": "Sidebar navigation for the seven workspaces, theme toggle, and a provider status badge loaded from /api/status.", "evidence": ["frontend/src/components/Layout.tsx:46-55"]}, {"id": "ui.api", "kind": "component", "parent": "ui", "label": "api.ts (fetch + hooks)", "path": "frontend/src/api.ts", "what": "One fetch wrapper that sends JSON, parses the reply and throws ApiError with the backend's error kind. Hooks: useApi (GET on mount), useAction (button calls), usePoll (repeat while a job runs).", "evidence": ["frontend/src/api.ts:9-23", "frontend/src/api.ts:26-91"], "weight": 5}, {"id": "ui.ui", "kind": "component", "parent": "ui", "label": "ui.tsx (shared widgets)", "path": "frontend/src/components/ui.tsx", "what": "Cards, stats, tabs, SVG charts and ErrorBox, which explains errors like 'no provider configured' in plain words.", "evidence": ["frontend/src/components/ui.tsx:44-55"]}, {"id": "ui.pages", "kind": "component", "parent": "ui", "label": "Lab pages (×7 + Overview)", "path": "frontend/src/pages", "what": "EvidenceAtlas, IntentForge, CacheCraft, TrustBoundary, SignalLoop, MissionReplay, TraceLens and Overview. Each calls only its own /api/<lab> routes.", "evidence": ["frontend/src/pages/EvidenceAtlas.tsx:56", "frontend/src/pages/TraceLens.tsx:37-42"], "weight": 4}, {"id": "vite", "kind": "subsystem", "group": "devserver", "label": "Vite dev server :5173", "path": "frontend/vite.config.ts", "what": "Serves the app files with hot reload and forwards every /api request to the backend.", "why": "Because the browser only ever talks to :5173, there is no cross-origin problem and API keys stay on the server side.", "analogy": "A receptionist who passes your note to the back office so you never need its direct number.", "responsibilities": ["Serve and hot-reload the React app", "Proxy /api → http://127.0.0.1:8000"], "data": {"receives": ["browser requests"], "produces": ["proxied HTTP requests"]}, "evidence": ["frontend/vite.config.ts:4-8"]}, {"id": "vite.proxy", "kind": "component", "parent": "vite", "label": "/api proxy", "path": "frontend/vite.config.ts:7", "what": "One config line: { \"/api\": \"http://127.0.0.1:8000\" }.", "evidence": ["frontend/vite.config.ts:7"]}, {"id": "be", "kind": "subsystem", "group": "server", "label": "FastAPI backend :8000", "path": "backend/lab/api.py", "what": "One Python process. It validates each request with pydantic, routes it to the right lab, and converts failures into clear HTTP errors.", "why": "This is where every rule is enforced (roles, gates, guardrails). The UI only displays results; it can't bypass the backend.", "responsibilities": ["Validate inputs", "Route to lab modules", "Map errors to 400/403/409/502", "Report status"], "data": {"receives": ["JSON requests"], "produces": ["JSON responses with trace_id"]}, "evidence": ["backend/lab/api.py:17-47"]}, {"id": "be.app", "kind": "component", "parent": "be", "label": "App, CORS, /api/status", "path": "backend/lab/api.py", "what": "Creates the app, allows the dev origin, mounts routers, and serves /api/status (which providers are usable, which embedder).", "evidence": ["backend/lab/api.py:17-21", "backend/lab/api.py:44-47"]}, {"id": "be.errors", "kind": "component", "parent": "be", "label": "Error handlers", "path": "backend/lab/api.py:24-41", "what": "ProviderUnavailable→409, ProviderError→502, PermissionError→403, ValueError→400. Secrets are scrubbed from the message.", "evidence": ["backend/lab/api.py:24-41"]}, {"id": "be.routers", "kind": "component", "parent": "be", "label": "7 lab routers", "path": "backend/lab", "what": "/api/rag, /api/finetune, /api/cache, /api/guard, /api/feedback, /api/agents, /api/traces + /api/observability. Each declares pydantic request models.", "evidence": ["backend/lab/p01_rag/api.py:14-40", "backend/lab/p07_observability/api.py:9-12"], "weight": 4}, {"id": "be.labs", "kind": "component", "parent": "be", "label": "Lab logic (p01–p07)", "path": "backend/lab", "what": "The actual pattern implementations (RAG pipeline, cache gateway, guardrail pipeline, …). See the 7-labs map for their insides.", "evidence": ["backend/lab/p01_rag/pipeline.py:11-26"], "weight": 5}, {"id": "be.core", "kind": "component", "parent": "be", "label": "Core: providers + tracing", "path": "backend/lab/core", "what": "The one LLM client and the span recorder every lab uses.", "evidence": ["backend/lab/core/providers.py:116-136", "backend/lab/core/tracing.py:124-139"], "weight": 4}, {"id": "be.jobs", "kind": "component", "parent": "be", "label": "Job runner", "path": "backend/lab/core/jobs.py", "what": "Spawns training/evaluation as a separate process and tracks it with a pid file and log.", "evidence": ["backend/lab/core/jobs.py:29-45"]}, {"id": "worker", "kind": "subsystem", "group": "server", "label": "Training subprocess", "path": "backend/lab/p02_finetune/train.py", "status": "optional", "what": "A separate `python -m lab.p02_finetune.train` process that trains a LoRA adapter and writes progress to status.json. Needs the ML extras (torch).", "why": "Training takes minutes. Running it outside the API process keeps the UI responsive and frees memory when it ends.", "data": {"receives": ["CLI args (epochs, lr, r, alpha)"], "produces": ["status.json", "adapter/", "metadata.json"]}, "evidence": ["backend/lab/core/jobs.py:1-2", "backend/lab/p02_finetune/train.py:30-35"]}, {"id": "labdb", "kind": "external", "group": "data", "label": "SQLite var/lab.db", "what": "Shared database: spans, cache entries, guard log/approvals, feedback, agent runs, alerts.", "evidence": ["backend/lab/core/db.py:9-23"]}, {"id": "files", "kind": "external", "group": "data", "label": "Files: data/ + var/", "what": "Committed fixtures and runtime artefacts (datasets, adapters, results, job logs).", "evidence": ["backend/lab/core/config.py:5-7", "backend/lab/core/config.py:36-40"]}, {"id": "ls", "kind": "external", "group": "browser", "label": "Browser localStorage", "what": "Stores only the light/dark theme choice.", "evidence": ["frontend/src/components/Layout.tsx:54"]}, {"id": "dotenv", "kind": "external", "group": "data", "label": ".env (keys + flags)", "what": "API keys and LAB_* settings, read once at backend start. Never sent to the browser.", "evidence": ["backend/lab/core/config.py:10-21", ".env.example:1-12"]}, {"id": "llm", "kind": "external", "group": "ext", "label": "DeepSeek / Groq APIs", "status": "optional", "what": "OpenAI-compatible chat APIs, used only when a key is set and LAB_OFFLINE is off.", "evidence": ["backend/lab/core/providers.py:18-23", "backend/lab/core/providers.py:79-82"]}, {"id": "hf", "kind": "external", "group": "ext", "label": "Local HF models", "status": "optional", "what": "MiniLM embeddings, cross-encoder and SmolLM2, downloaded once and run on CPU.", "evidence": ["backend/lab/core/embeddings.py:43-52", "backend/lab/p02_finetune/model.py:15"]}], "links": [{"from": "ui.boot", "to": "ls", "kind": "file", "label": "read theme before first paint", "confidence": "verified", "evidence": ["frontend/index.html:7-9"]}, {"from": "ui.layout", "to": "ls", "kind": "file", "label": "save theme", "confidence": "verified", "evidence": ["frontend/src/components/Layout.tsx:52-55"]}, {"from": "ui.boot", "to": "ui.router", "kind": "render", "label": "render <App/>", "confidence": "verified", "evidence": ["frontend/src/main.tsx:6-10"]}, {"from": "ui.router", "to": "ui.layout", "kind": "render", "label": "<Route element={<Layout/>}>", "confidence": "verified", "evidence": ["frontend/src/App.tsx:17"]}, {"from": "ui.router", "to": "ui.pages", "kind": "render", "label": "one route per workspace", "confidence": "verified", "evidence": ["frontend/src/App.tsx:18-25"]}, {"from": "ui.pages", "to": "ui.api", "kind": "call", "label": "useApi / useAction / usePoll", "confidence": "verified", "evidence": ["frontend/src/pages/EvidenceAtlas.tsx:52-57", "frontend/src/pages/IntentForge.tsx:89-90"]}, {"from": "ui.layout", "to": "ui.api", "kind": "call", "label": "useApi('/api/status')", "confidence": "verified", "evidence": ["frontend/src/components/Layout.tsx:47"]}, {"from": "ui.pages", "to": "ui.ui", "kind": "import", "label": "Card, Tabs, charts, ErrorBox", "confidence": "verified", "evidence": ["frontend/src/pages/EvidenceAtlas.tsx:5"]}, {"from": "ui.api", "to": "vite.proxy", "kind": "http", "label": "fetch('/api/...') same origin", "confidence": "verified", "evidence": ["frontend/src/api.ts:10-14"]}, {"from": "vite.proxy", "to": "be.app", "kind": "http", "label": "proxy → http://127.0.0.1:8000", "confidence": "verified", "evidence": ["frontend/vite.config.ts:7"]}, {"from": "be.app", "to": "be.routers", "kind": "call", "label": "include_router ×7", "confidence": "verified", "evidence": ["backend/lab/api.py:20-21"]}, {"from": "be.routers", "to": "be.labs", "kind": "call", "label": "e.g. POST /api/rag/ask → ask()", "confidence": "verified", "evidence": ["backend/lab/p01_rag/api.py:86-89", "backend/lab/p03_cache/api.py:35-37"]}, {"from": "be.labs", "to": "be.core", "kind": "call", "label": "providers.chat, tracing.span", "confidence": "verified", "evidence": ["backend/lab/p01_rag/generate.py:107", "backend/lab/p01_rag/pipeline.py:16"]}, {"from": "be.labs", "to": "be.errors", "kind": "call", "label": "raise PermissionError / ValueError / ProviderError", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:321-322", "backend/lab/p01_rag/pipeline.py:14-15"]}, {"from": "be.core", "to": "labdb", "kind": "db", "label": "INSERT INTO spans", "confidence": "verified", "evidence": ["backend/lab/core/tracing.py:113-121"]}, {"from": "be.labs", "to": "labdb", "kind": "db", "label": "each lab's own tables", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:220-221", "backend/lab/p04_guardrails/pipeline.py:215-216"]}, {"from": "be.labs", "to": "files", "kind": "file", "label": "fixtures in, results out", "confidence": "verified", "evidence": ["backend/lab/p01_rag/index.py:21", "backend/lab/p01_rag/evaluate.py:127-128"]}, {"from": "be.core", "to": "llm", "kind": "http", "label": "POST /chat/completions (Bearer key)", "confidence": "verified", "evidence": ["backend/lab/core/providers.py:139-143"]}, {"from": "be.core", "to": "dotenv", "kind": "config", "label": "load .env at import", "confidence": "verified", "evidence": ["backend/lab/core/config.py:21"]}, {"from": "be.labs", "to": "hf", "kind": "model", "label": "embeddings / rerank / SmolLM2", "confidence": "verified", "evidence": ["backend/lab/core/embeddings.py:63-77", "backend/lab/p01_rag/retrieve.py:59-63"]}, {"from": "be.routers", "to": "be.jobs", "kind": "call", "label": "POST /api/finetune/train → spawn", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:67-78"]}, {"from": "be.jobs", "to": "worker", "kind": "call", "async": true, "label": "subprocess.Popen(python -m …)", "confidence": "verified", "evidence": ["backend/lab/core/jobs.py:33-34"]}, {"from": "worker", "to": "files", "kind": "file", "label": "status.json, adapter, metadata", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/train.py:59-63", "backend/lab/p02_finetune/train.py:69-94"]}, {"from": "worker", "to": "hf", "kind": "model", "label": "SmolLM2-135M + LoRA", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/model.py:41-52"]}, {"from": "be.routers", "to": "files", "kind": "file", "label": "GET /runs reads status.json", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:81-89"]}], "flows": [{"name": "Open the app", "trigger": "User opens http://localhost:5173", "description": "How the page boots, picks a theme, and learns which providers are usable.", "steps": [{"from": "ui.boot", "to": "ls", "kind": "request", "text": "A tiny inline script reads the saved theme before React loads, so the page doesn't flash white in dark mode.", "data": "localStorage.theme", "confidence": "verified", "evidence": ["frontend/index.html:7-9"]}, {"from": "ui.boot", "to": "ui.router", "kind": "internal", "text": "React mounts and the router picks the page for the current URL inside the shared Layout.", "data": "URL path → page component", "confidence": "verified", "evidence": ["frontend/src/main.tsx:6-10", "frontend/src/App.tsx:15-29"]}, {"from": "ui.layout", "to": "vite.proxy", "kind": "request", "text": "The Layout asks for /api/status on mount (useApi).", "data": "GET /api/status", "confidence": "verified", "evidence": ["frontend/src/components/Layout.tsx:47", "frontend/src/api.ts:42-44"]}, {"from": "vite.proxy", "to": "be.app", "kind": "request", "text": "Vite forwards the call to FastAPI on port 8000.", "data": "GET /api/status", "confidence": "verified", "evidence": ["frontend/vite.config.ts:7"]}, {"from": "be.app", "to": "ui.layout", "kind": "response", "text": "The reply says which providers are configured/usable, the embedder, and whether content capture is on. Keys themselves are never included.", "data": "{default_provider, providers[{configured, usable, model}], embedder}", "confidence": "verified", "evidence": ["backend/lab/api.py:44-47", "backend/lab/core/providers.py:94-103"]}]}, {"name": "Ask a RAG question from the UI", "trigger": "User clicks Ask in Evidence Atlas", "description": "One full round trip: button → fetch → proxy → router → lab → SQLite/LLM → JSON → rendered answer.", "steps": [{"from": "ui.pages", "to": "ui.api", "kind": "request", "text": "The page's useAction wraps the call so it can show a spinner and any error.", "data": "{question, index, retrieval, use_llm}", "confidence": "verified", "evidence": ["frontend/src/pages/EvidenceAtlas.tsx:56", "frontend/src/api.ts:49-70"]}, {"from": "ui.api", "to": "vite.proxy", "kind": "request", "text": "fetch sends JSON with POST to a relative URL, so it goes to the same origin (:5173).", "data": "POST /api/rag/ask (JSON)", "confidence": "verified", "evidence": ["frontend/src/api.ts:10-14"]}, {"from": "vite.proxy", "to": "be.routers", "kind": "request", "text": "Forwarded to FastAPI. Pydantic validates the body (e.g. question 3–500 chars) or returns 422.", "data": "AskIn model", "confidence": "verified", "evidence": ["frontend/vite.config.ts:7", "backend/lab/p01_rag/api.py:34-40"]}, {"from": "be.routers", "to": "be.labs", "kind": "request", "text": "The router calls the RAG pipeline, which opens a root span so the whole request is one trace.", "data": "ask(question, cfgs)", "confidence": "verified", "evidence": ["backend/lab/p01_rag/api.py:86-89", "backend/lab/p01_rag/pipeline.py:16-17"]}, {"from": "be.core", "to": "llm", "kind": "request", "text": "Only if 'use LLM' is on and a key exists: the sources and question go to DeepSeek/Groq. Otherwise an offline extractive answer is used.", "data": "chat messages → answer + token usage", "confidence": "verified", "evidence": ["backend/lab/p01_rag/generate.py:166-169", "backend/lab/core/providers.py:139-143"]}, {"from": "be.core", "to": "labdb", "kind": "async", "text": "Each span is written to SQLite as it closes, with content hashed unless capture is enabled.", "data": "INSERT spans", "confidence": "verified", "evidence": ["backend/lab/core/tracing.py:137-139"]}, {"from": "be.routers", "to": "ui.pages", "kind": "response", "text": "JSON comes back through the proxy; the page renders the answer, citations and per-passage scores, and can link the trace_id to TraceLens.", "data": "{answer, hits, citations, verification, trace_id}", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:21-26"]}]}, {"name": "Error path: LLM requested but no key", "trigger": "User turns on 'use LLM' without a configured provider", "description": "How a backend error becomes a helpful message in the UI.", "steps": [{"from": "be.labs", "to": "be.errors", "kind": "error", "text": "The pipeline raises ProviderUnavailable before doing any work.", "data": "ProviderUnavailable", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:14-15"]}, {"from": "be.errors", "to": "ui.api", "kind": "response", "text": "The handler returns HTTP 409 with error kind 'provider_unavailable' and a secret-scrubbed detail.", "data": "409 {error: provider_unavailable, detail}", "confidence": "verified", "evidence": ["backend/lab/api.py:24-26"]}, {"from": "ui.api", "to": "ui.ui", "kind": "internal", "text": "api.ts throws ApiError carrying the kind; ErrorBox turns it into plain advice: switch off the LLM option or add a key to .env.", "data": "ApiError(kind)", "confidence": "verified", "evidence": ["frontend/src/api.ts:17-21", "frontend/src/components/ui.tsx:44-47"]}]}, {"name": "Train a LoRA adapter and watch progress", "trigger": "User clicks Train in IntentForge", "description": "Long work runs in a subprocess; the page polls until it finishes.", "steps": [{"from": "ui.pages", "to": "be.routers", "kind": "request", "text": "The page POSTs hyperparameters and switches polling on.", "data": "POST /api/finetune/train {epochs, lr, r, alpha}", "confidence": "verified", "evidence": ["frontend/src/pages/IntentForge.tsx:89-90"]}, {"from": "be.routers", "to": "be.jobs", "kind": "request", "text": "The route spawns the job; if one is already running it returns 409.", "data": "jobs.spawn('p02-train', …)", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:67-78"]}, {"from": "be.jobs", "to": "worker", "kind": "async", "text": "A new Python process starts training; the API replies right away with the run_id.", "data": "python -m lab.p02_finetune.train --run-id …", "confidence": "verified", "evidence": ["backend/lab/core/jobs.py:33-37"]}, {"from": "worker", "to": "files", "kind": "async", "text": "Every few steps the worker updates status.json with step, loss history and ETA.", "data": "status.json", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/train.py:59-63"]}, {"from": "ui.pages", "to": "be.routers", "kind": "request", "text": "usePoll calls GET /api/finetune/runs every 2 s while the job runs.", "data": "GET /api/finetune/runs", "confidence": "verified", "evidence": ["frontend/src/pages/IntentForge.tsx:89", "frontend/src/api.ts:83-90"]}, {"from": "be.routers", "to": "ui.pages", "kind": "response", "text": "The route reads each run's status.json plus the log tail; when job_running turns false, polling stops.", "data": "{runs[], job_running, log_tail}", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:81-89", "frontend/src/pages/IntentForge.tsx:91"]}]}, {"name": "Human approval of a risky action", "trigger": "TrustBoundary queues an outbound email; a reviewer approves it", "description": "Friction by design: the backend re-checks policy against the reviewer's role before executing.", "steps": [{"from": "ui.pages", "to": "be.routers", "kind": "request", "text": "The page sends the document for processing; risky actions come back as pending_approval.", "data": "POST /api/guard/process", "confidence": "verified", "evidence": ["frontend/src/pages/TrustBoundary.tsx:41", "backend/lab/p04_guardrails/api.py:27-32"]}, {"from": "be.labs", "to": "labdb", "kind": "request", "text": "The pending action is stored in guard_approvals instead of being executed.", "data": "INSERT guard_approvals", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:213-219"]}, {"from": "ui.pages", "to": "be.routers", "kind": "request", "text": "The reviewer clicks approve/reject, sending their role.", "data": "POST /api/guard/approvals/{id} {approve, reviewer_role}", "confidence": "verified", "evidence": ["frontend/src/pages/TrustBoundary.tsx:42", "backend/lab/p04_guardrails/api.py:48-50"]}, {"from": "be.labs", "to": "labdb", "kind": "response", "text": "Policy is re-checked for the reviewer's role; only then does the action run, and the decision is recorded.", "data": "UPDATE guard_approvals", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:265-286"]}]}, {"name": "Inspect a trace in TraceLens", "trigger": "User opens TraceLens and selects a trace", "description": "Reads back the spans every other page's requests produced.", "steps": [{"from": "ui.pages", "to": "be.routers", "kind": "request", "text": "The trace list is fetched with filters (module, status, search).", "data": "GET /api/traces?limit=80…", "confidence": "verified", "evidence": ["frontend/src/pages/TraceLens.tsx:37"]}, {"from": "be.routers", "to": "labdb", "kind": "request", "text": "metrics.search groups spans by trace_id from the spans table.", "data": "SELECT … FROM spans", "confidence": "verified", "evidence": ["backend/lab/p07_observability/api.py:12-15", "backend/lab/p07_observability/metrics.py:43-60"]}, {"from": "ui.pages", "to": "be.routers", "kind": "request", "text": "Selecting a trace loads its full span tree (and optionally compares it with another).", "data": "GET /api/traces/{id}", "confidence": "verified", "evidence": ["frontend/src/pages/TraceLens.tsx:39-42"]}, {"from": "be.routers", "to": "ui.pages", "kind": "response", "text": "The waterfall shows each step's latency, tokens, cost and status, so you can find exactly which step failed.", "data": "trace tree JSON", "confidence": "verified", "evidence": ["backend/lab/p07_observability/api.py:23-28", "backend/lab/p07_observability/metrics.py:75-76"]}]}]}</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const D = JSON.parse(document.getElementById('archviz-data').textContent);
+const A = D.architecture || {};
+const flows = D.flows || [];
+const links = D.links || [];
+const PALETTE = [0x4fc3ff, 0xff9f43, 0xb36bff, 0x2ee6a6, 0xffd84d, 0xff5c8a, 0x5ce1e6, 0xa3e635, 0xff7ae0, 0x9aa3c7];
+const ASYNC = 0xff5cf0;
+const STEP_COLOR = { request: 0xffffff, response: 0x4fc3ff, internal: 0xd6b3ff, async: ASYNC, error: 0xff4d4d };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+
+const groups = new Map(D.groups.map((g, i) => [g.id, { ...g, color: g.color ? parseInt(g.color.slice(1), 16) : PALETTE[i % PALETTE.length] }]));
+const byId = new Map(D.nodes.map((n) => [n.id, n]));
+const children = (id) => D.nodes.filter((n) => n.parent === id);
+const topOf = (id) => byId.get(id)?.parent || id;
+const gid = (n) => n.group || byId.get(n.parent)?.group;
+const nameOf = (id) => esc(byId.get(id)?.label || id);
+const badge = (c) => c ? `<span class="badge b-${esc(c)}">${esc(c)}</span>` : '';
+
+// ---------- header + legend ----------
+document.title = `${D.project} · Archviz`;
+document.getElementById('title').textContent = D.project;
+document.getElementById('summary').textContent = D.summary || '';
+document.getElementById('stack').innerHTML = (D.stack || []).map((s) => `<span class="chip">${esc(s)}</span>`).join('');
+document.getElementById('legend').innerHTML =
+  [...groups.values()].map((g) => `<div><span class="dot" style="color:${hex(g.color)}"></span>${esc(g.name)}</div>`).join('') +
+  `<hr><div><span class="ln"></span>verified link</div>
+   <div><span class="ln" style="border-top-style:dashed;border-color:#ffd84d"></span>inferred link</div>
+   <div><span class="ln" style="border-color:${hex(ASYNC)}"></span>async (queue / event / job)</div>
+   <div>◉ has parts · double-click to explore</div><div>◆ external service</div><div>wireframe = planned, not built yet</div>`;
+
+// ---------- scene ----------
+const host = document.getElementById('scene');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x070914, 0.010);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+host.appendChild(renderer.domElement);
+const labels = new CSS2DRenderer();
+labels.setSize(innerWidth, innerHeight);
+Object.assign(labels.domElement.style, { position: 'absolute', top: 0, pointerEvents: 'none' });
+host.appendChild(labels.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const pl = new THREE.PointLight(0xffffff, 300); pl.position.set(0, 40, 30); scene.add(pl);
+
+// stars live on a far shell so none ever sits next to the camera
+const starPos = new Float32Array(1500 * 3);
+for (let i = 0; i < starPos.length; i += 3) {
+  const v = new THREE.Vector3().randomDirection().multiplyScalar(150 + Math.random() * 100);
+  starPos.set([v.x, v.y, v.z], i);
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x8090ff, size: 0.6, transparent: true, opacity: 0.6 })));
+
+// ---------- views: overview (top-level nodes) or one subsystem (its parts + other top-level nodes as ghosts) ----------
+const world = new THREE.Group(); scene.add(world);
+const LAYER_GAP = 10;
+let view = null;          // null = overview, else subsystem id
+const shown = new Map();  // id -> { mesh, glow, el, ghost }
+let linkObjs = [], labelEls = [];
+
+function addLabel(text, cls, parent, pos) {
+  const el = document.createElement('div'); el.className = cls; el.textContent = text;
+  const o = new CSS2DObject(el); o.position.copy(pos); parent.add(o); labelEls.push(el);
+  return el;
+}
+
+function addNode(n, pos, ghost) {
+  const color = groups.get(gid(n))?.color ?? 0x9aa3c7;
+  const kids = children(n.id).length;
+  const size = n.kind === 'subsystem' ? 1.3 + Math.min(1.2, kids * 0.12) : 0.8 + Math.min(1, (n.weight || 1) * 0.2);
+  const geo = n.kind === 'external' ? new THREE.OctahedronGeometry(size * 1.15) : new THREE.SphereGeometry(size, 32, 32);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.7, roughness: 0.3, transparent: true, flatShading: n.kind === 'external', wireframe: n.status === 'planned' }));
+  mesh.position.copy(pos);
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(size * 1.9, 24, 24),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false }));
+  mesh.add(glow);
+  mesh.userData = n;
+  world.add(mesh);
+  const el = addLabel((kids ? '◉ ' : '') + (n.label || n.id), 'label' + (ghost ? ' ghost' : ''), mesh, new THREE.Vector3(0, size + 1, 0));
+  shown.set(n.id, { mesh, glow, el, ghost });
+}
+
+// Which visible node stands for `id` in the current view (itself, or its subsystem), or null.
+function vid(id) {
+  if (shown.has(id)) return id;
+  const t = topOf(id);
+  return shown.has(t) ? t : null;
+}
+
+function build(v) {
+  labelEls.forEach((e) => e.remove()); labelEls = [];
+  world.clear(); shown.clear(); linkObjs = [];
+  view = v;
+  const inner = v ? children(v) : D.nodes.filter((n) => !n.parent);
+  const used = [...groups.keys()].filter((g) => inner.some((n) => gid(n) === g));
+  let maxR = 6;
+  used.forEach((g, li) => {
+    const ns = inner.filter((n) => gid(n) === g);
+    const y = ((used.length - 1) / 2 - li) * LAYER_GAP;
+    const r = Math.max(6, ns.length * 2.4);
+    maxR = Math.max(maxR, r);
+    const color = groups.get(g).color;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.15, r + 0.15, 96),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = y; world.add(ring);
+    addLabel(groups.get(g).name, 'layerTitle', world, new THREE.Vector3(r + 3, y, 0)).style.color = hex(color);
+    ns.forEach((n, i) => {
+      const a = (i / ns.length) * Math.PI * 2 + li * 0.6;
+      addNode(n, new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r), false);
+    });
+  });
+  if (v) {
+    const others = D.nodes.filter((n) => !n.parent && n.id !== v);
+    const R = maxR + 16;
+    others.forEach((n, i) => {
+      const a = (i / others.length) * Math.PI * 2;
+      addNode(n, new THREE.Vector3(Math.cos(a) * R, 0, Math.sin(a) * R), true);
+    });
+  }
+  // Links are drawn between whatever represents each end in this view; duplicates merge.
+  const agg = new Map();
+  for (const l of links) {
+    const a = vid(l.from), b = vid(l.to);
+    if (!a || !b || a === b) continue;
+    if (v && byId.get(a)?.parent !== v && byId.get(b)?.parent !== v) continue;
+    const k = a + '>' + b;
+    const e = agg.get(k) || { from: a, to: b, async: false, inferred: true };
+    e.async ||= !!l.async;
+    e.inferred &&= l.confidence === 'inferred';
+    agg.set(k, e);
+  }
+  for (const e of agg.values()) {
+    const pa = shown.get(e.from).mesh.position, pb = shown.get(e.to).mesh.position;
+    const mid = pa.clone().lerp(pb, 0.5); mid.y += 2;
+    const geo = new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(pa, mid, pb).getPoints(32));
+    const color = e.async ? ASYNC : e.inferred ? 0xffd84d : shown.get(e.from).mesh.material.color;
+    const mat = e.inferred
+      ? new THREE.LineDashedMaterial({ color, dashSize: 0.6, gapSize: 0.45, transparent: true, opacity: 0.35 })
+      : new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.35 });
+    const line = new THREE.Line(geo, mat);
+    if (e.inferred) line.computeLineDistances();
+    line.userData = e; world.add(line); linkObjs.push(line);
+  }
+  document.getElementById('crumbs').innerHTML = v
+    ? `<button class="linkbtn" data-up>System overview</button> › <b>${nameOf(v)}</b><div class="hint">inside ${nameOf(v)} · faded nodes are the rest of the system</div>`
+    : `<b>System overview</b><div class="hint">drag = rotate · scroll = zoom · click = explain · double-click ◉ = go inside</div>`;
+  highlight(null);
+  if (flow) setStep(step);
+}
+
+// ---------- camera ----------
+let fly = null;
+function frame(instant) {
+  const box = new THREE.Box3();
+  for (const v of shown.values()) box.expandByObject(v.mesh);
+  const c = box.getCenter(new THREE.Vector3());
+  const dist = Math.max(30, box.getSize(new THREE.Vector3()).length() * 1.05);
+  const p = new THREE.Vector3(c.x + dist * 0.6, c.y + dist * 0.45, c.z + dist * 0.75);
+  if (instant) { camera.position.copy(p); controls.target.copy(c); }
+  else fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: p, t1: c, start: performance.now() };
+}
+function enter(v) { build(v); frame(); controls.autoRotate = false; }
+
+// dim everything except the given visible ids (null = show all)
+function highlight(ids) {
+  for (const [id, v] of shown) {
+    const on = !ids || ids.has(id);
+    const base = v.ghost ? 0.25 : 0.7;
+    v.mesh.material.emissiveIntensity = on ? (ids ? 1.4 : base) : 0.08;
+    v.mesh.material.opacity = on ? (v.ghost && !ids ? 0.5 : 1) : 0.25;
+    v.glow.material.opacity = on ? (ids ? 0.25 : 0.12) : 0.02;
+    v.el.classList.toggle('dim', !on);
+  }
+  for (const line of linkObjs) {
+    const on = !ids || (ids.has(line.userData.from) && ids.has(line.userData.to));
+    line.material.opacity = on ? (ids ? 0.9 : 0.35) : 0.05;
+  }
+}
+
+// ---------- details panel ----------
+const details = document.getElementById('details');
+const section = (title, body) => body ? `<h3>${title}</h3>${body}` : '';
+const list = (items, fn = esc) => items?.length ? `<ul>${items.map(fn).join('')}</ul>` : '';
+const li = (x) => `<li>${x}</li>`;
+const evidence = (ev) => list(ev, (e) => `<li class="ev">${esc(e)}</li>`);
+const inferredNote = (o) => o.confidence === 'inferred' && o.reason ? `<p class="why-inferred"><b>Why this is inferred:</b> ${esc(o.reason)}</p>` : '';
+
+function openPanel(html) {
+  details.innerHTML = `<button class="close" aria-label="Close">×</button>${html}`;
+  details.style.display = 'block';
+  details.scrollTop = 0;
+}
+
+function linkItem(l, other, via) {
+  return li(`<button class="linkbtn" data-node="${esc(l[other])}">${nameOf(l[other])}</button>${via}
+    <span class="kind">${esc(l.kind || '')}${l.async ? ' · async' : ''}</span>${l.label ? ' — ' + esc(l.label) : ''}
+    ${l.confidence === 'inferred' ? badge('inferred') + (l.reason ? `<span class="kind">${esc(l.reason)}</span>` : '') : ''}
+    ${l.evidence?.length ? `<div class="ev">${l.evidence.map(esc).join(' · ')}</div>` : ''}`);
+}
+
+function showNode(n) {
+  const kids = children(n.id);
+  const fam = new Set([n.id, ...kids.map((k) => k.id)]);
+  const out = links.filter((l) => fam.has(l.from) && !fam.has(l.to));
+  const inc = links.filter((l) => fam.has(l.to) && !fam.has(l.from));
+  const via = (l, end) => l[end] !== n.id ? `<span class="kind"> (via ${nameOf(l[end])})</span>` : '';
+  const inFlows = flows.map((f, i) => [f, i]).filter(([f]) => f.steps.some((s) => fam.has(s.from) || fam.has(s.to)));
+  const d = n.data || {};
+  const dataHtml = ['owns', 'receives', 'produces'].filter((k) => d[k]?.length)
+    .map((k) => li(`<b>${k[0].toUpperCase() + k.slice(1)}:</b> ${d[k].map(esc).join('; ')}`)).join('');
+  const g = groups.get(gid(n));
+  openPanel(`
+    <h2>${esc(n.label || n.id)} ${badge(n.confidence || 'verified')}${n.status && n.status !== 'implemented' ? badge(n.status) : ''}</h2>
+    <div class="path">${esc(n.kind)}${g ? ' · ' + esc(g.name) : ''}${n.parent ? ' · inside ' + nameOf(n.parent) : ''}${n.path ? ' · ' + esc(n.path) : ''}</div>
+    <p>${esc(n.what)}</p>
+    ${n.analogy ? `<p class="analogy">${esc(n.analogy)}</p>` : ''}
+    ${inferredNote(n)}
+    ${section('Why it exists', n.why ? `<p>${esc(n.why)}</p>` : '')}
+    ${section('Responsibilities', list(n.responsibilities))}
+    ${section('Data', dataHtml ? `<ul>${dataHtml}</ul>` : '')}
+    ${section(`Inside (${kids.length})`, kids.length ? list(kids, (k) => li(`<button class="linkbtn" data-node="${esc(k.id)}">${esc(k.label || k.id)}</button> — <span class="kind">${esc(k.what)}</span>`))
+      + (view !== n.id ? `<button data-explore="${esc(n.id)}">Explore inside →</button>` : '') : '')}
+    ${section('Depends on / talks to', list(out, (l) => linkItem(l, 'to', via(l, 'from'))))}
+    ${section('Used by', list(inc, (l) => linkItem(l, 'from', via(l, 'to'))))}
+    ${section('Part of these workflows', list(inFlows, ([f, i]) => li(`<button class="linkbtn" data-flow="${i}">▶ ${esc(f.name)}</button>`)))}
+    ${section('Evidence', evidence(n.evidence))}`);
+}
+
+function showAbout() {
+  openPanel(`
+    <h2>About this system</h2>
+    ${A.style ? `<div class="path">${esc(A.style)}</div>` : ''}
+    <p>${esc(A.summary || D.summary || '')}</p>
+    ${section('What gets deployed / run', list(A.deployables, (d) => li(`<b>${esc(d.name)}</b> — ${esc(d.what)}${d.evidence?.length ? `<div class="ev">${d.evidence.map(esc).join(' · ')}</div>` : ''}`)))}
+    ${section('Parts of the system', list(D.nodes.filter((n) => !n.parent), (n) => li(`<button class="linkbtn" data-node="${esc(n.id)}">${esc(n.label || n.id)}</button> <span class="kind">${esc(n.kind)}</span> — ${esc(n.what)}`)))}
+    ${section('Groups', list([...groups.values()], (g) => li(`<b style="color:${hex(g.color)}">${esc(g.name)}</b>${g.what ? ' — ' + esc(g.what) : ''}`)))}
+    ${section('Workflows', list(flows.map((f, i) => [f, i]), ([f, i]) => li(`<button class="linkbtn" data-flow="${i}">▶ ${esc(f.name)}</button>${f.description ? ' — ' + esc(f.description) : ''}`)))}
+    ${section("Couldn't determine from the code", A.unknowns?.length ? list(A.unknowns) : '<p class="kind">Nothing flagged.</p>')}
+    <h3>How to read this</h3>
+    <p class="kind">Every claim cites the file and line it came from. ${badge('verified')} means the cited code shows it directly. ${badge('inferred')} means it's a reasoned guess (the reason is shown). ${badge('optional')} parts only run when a setting turns them on. ${badge('planned')} parts (wireframes) are mentioned or stubbed but not built yet. Anything that couldn't be worked out is listed above instead of being drawn.</p>`);
+}
+
+function selectNode(id) {
+  const n = byId.get(id); if (!n) return;
+  if (!shown.has(id)) enter(n.parent || null);
+  showNode(n);
+  const fam = new Set([id, ...children(id).map((k) => k.id)]);
+  const ids = new Set([vid(id)]);
+  for (const l of links) if (fam.has(l.from) || fam.has(l.to)) { ids.add(vid(l.from)); ids.add(vid(l.to)); }
+  ids.delete(null);
+  highlight(ids);
+}
+
+details.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.classList.contains('close')) { details.style.display = 'none'; highlight(null); }
+  else if (b.dataset.node) selectNode(b.dataset.node);
+  else if (b.dataset.explore) { enter(b.dataset.explore); showNode(byId.get(b.dataset.explore)); }
+  else if (b.dataset.flow) { sel.value = b.dataset.flow; sel.onchange(); play(); }
+});
+document.getElementById('crumbs').addEventListener('click', (e) => { if (e.target.closest('[data-up]')) { enter(null); showAbout(); } });
+document.getElementById('aboutBtn').onclick = showAbout;
+document.getElementById('reset').onclick = () => { stopFlow(); highlight(null); frame(); controls.autoRotate = true; };
+
+// ---------- picking ----------
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  return ray.intersectObjects([...shown.values()].map((v) => v.mesh), false)[0]?.object;
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; controls.autoRotate = false; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return; // was a drag
+  const hit = pick(e);
+  if (hit) selectNode(hit.userData.id);
+});
+renderer.domElement.addEventListener('dblclick', (e) => {
+  const n = pick(e)?.userData;
+  if (n && children(n.id).length && view !== n.id) { enter(n.id); showNode(n); }
+});
+renderer.domElement.addEventListener('pointermove', (e) => { renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab'; });
+
+// ---------- workflows ----------
+const sel = document.getElementById('flowSel');
+sel.innerHTML = flows.map((f, i) => `<option value="${i}">${esc(f.name)}</option>`).join('') || '<option>No workflows detected</option>';
+const caption = document.getElementById('caption');
+const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const particle = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 16), particleMat);
+const particleLight = new THREE.PointLight(0xffffff, 40, 12);
+particle.add(particleLight);
+particle.visible = false; scene.add(particle);
+const trail = [];
+
+let flow = null, step = -1, stepStart = 0, playing = false;
+const STEP_MS = 3200;
+const playBtn = document.getElementById('play');
+
+function describeFlow() {
+  const f = flows[+sel.value];
+  caption.innerHTML = f
+    ? `<span class="step">${esc(f.name)}${f.trigger ? ' · starts when: ' + esc(f.trigger) : ''}</span>${esc(f.description || '')}<div class="kind" style="margin-top:4px">Press Play to watch it travel through the system.</div>`
+    : 'No workflows were detected.';
+}
+
+function setStep(i) {
+  const f = flows[+sel.value]; if (!f) return;
+  flow = f; step = Math.max(0, Math.min(i, f.steps.length - 1)); stepStart = performance.now();
+  const s = f.steps[step];
+  const k = s.kind || 'request';
+  caption.innerHTML = `<span class="step">${badge(k)}Step ${step + 1} / ${f.steps.length} · ${nameOf(s.from)} → ${nameOf(s.to)}</span>
+    ${esc(s.text)}
+    ${s.data ? `<div class="carries"><b>Carries:</b> ${esc(s.data)}</div>` : ''}
+    ${s.confidence === 'inferred' ? `<div class="carries">${badge('inferred')}${esc(s.reason || '')}</div>` : ''}
+    ${s.evidence?.length ? `<div class="ev">${s.evidence.map(esc).join(' · ')}</div>` : ''}`;
+  const ids = new Set(f.steps.slice(0, step + 1).flatMap((x) => [vid(x.from), vid(x.to)]));
+  ids.delete(null);
+  highlight(ids);
+  particleMat.color.setHex(STEP_COLOR[k] ?? 0xffffff);
+  particleLight.color.setHex(STEP_COLOR[k] ?? 0xffffff);
+  particle.visible = true;
+}
+function stopFlow() { playing = false; flow = null; playBtn.textContent = '▶ Play'; particle.visible = false; trail.forEach((t) => scene.remove(t)); trail.length = 0; }
+function play() { controls.autoRotate = false; playing = true; playBtn.textContent = '■ Stop'; setStep(0); }
+playBtn.onclick = () => playing ? stopFlow() : play();
+const pause = () => { playing = false; playBtn.textContent = '▶ Play'; };
+document.getElementById('next').onclick = () => { pause(); setStep(flow ? step + 1 : 0); };
+document.getElementById('prev').onclick = () => { pause(); setStep(flow ? step - 1 : 0); };
+sel.onchange = () => { stopFlow(); highlight(null); describeFlow(); };
+describeFlow();
+
+function updateParticle(now) {
+  if (!flow || !particle.visible) return;
+  const s = flow.steps[step], a = shown.get(vid(s.from)), b = shown.get(vid(s.to));
+  if (a && b) {
+    const t = Math.min(1, (now - stepStart) / (STEP_MS * 0.6));
+    const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    if (a === b) { // work inside one place: orbit it
+      const ang = e * Math.PI * 4;
+      particle.position.copy(a.mesh.position).add(new THREE.Vector3(Math.cos(ang) * 2.2, Math.sin(e * Math.PI) * 1.5, Math.sin(ang) * 2.2));
+    } else {
+      const mid = a.mesh.position.clone().lerp(b.mesh.position, 0.5); mid.y += 2;
+      new THREE.QuadraticBezierCurve3(a.mesh.position, mid, b.mesh.position).getPoint(e, particle.position);
+    }
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshBasicMaterial({ color: particleMat.color.clone(), transparent: true, opacity: 0.8 }));
+    dot.position.copy(particle.position); scene.add(dot); trail.push(dot);
+    while (trail.length > 40) scene.remove(trail.shift());
+    trail.forEach((d, i) => (d.material.opacity = (i / trail.length) * 0.7));
+  }
+  if (playing && now - stepStart > STEP_MS) {
+    if (step < flow.steps.length - 1) setStep(step + 1);
+    else { playing = false; playBtn.textContent = '▶ Replay'; }
+  }
+}
+
+// ---------- start + loop ----------
+build(null);
+frame(true);
+showAbout();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); labels.setSize(innerWidth, innerHeight);
+});
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduceMotion) controls.autoRotate = false;
+renderer.setAnimationLoop((now) => {
+  if (fly) {
+    const t = Math.min(1, (now - fly.start) / (reduceMotion ? 1 : 900));
+    const e = 1 - (1 - t) ** 3;
+    camera.position.lerpVectors(fly.p0, fly.p1, e);
+    controls.target.lerpVectors(fly.t0, fly.t1, e);
+    if (t === 1) fly = null;
+  }
+  const pulse = reduceMotion ? 1 : 1 + Math.sin(now / 400) * 0.08;
+  for (const v of shown.values()) v.glow.scale.setScalar(pulse);
+  updateParticle(now);
+  controls.update();
+  renderer.render(scene, camera);
+  labels.render(scene, camera);
+});
+</script>
+<script>
+  // If the CDN module never loads, show a friendly message instead of a black screen.
+  setTimeout(() => { if (!document.querySelector('#scene canvas')) document.getElementById('err').style.display = 'grid'; }, 6000);
+</script>
+</body>
+</html>

@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archviz</title>
+<style>
+  :root { --bg:#070914; --panel:#11152bcc; --text:#e8ebff; --muted:#9aa3c7; --line:#2a3160; --accent:#7c8cff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; overflow:hidden; }
+  #scene { position:fixed; inset:0; }
+  .panel { position:fixed; background:var(--panel); backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  #top { top:12px; left:12px; max-width:min(400px, calc(100vw - 24px)); max-height:40vh; overflow:auto; }
+  #top h1 { margin:0 0 6px; font-size:20px; }
+  #top p { margin:0 0 8px; color:var(--muted); font-size:13px; line-height:1.5; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .chip { font-size:11px; padding:3px 8px; border-radius:99px; background:#ffffff14; border:1px solid var(--line); }
+  #crumbs { top:12px; left:50%; transform:translateX(-50%); padding:8px 14px; font-size:13px; text-align:center; max-width:calc(100vw - 880px); min-width:240px; }
+  #crumbs .hint { font-size:11px; color:var(--muted); margin-top:3px; }
+  #legend { bottom:12px; left:12px; font-size:12px; display:flex; flex-direction:column; gap:4px; max-height:40vh; overflow:auto; }
+  #legend .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; box-shadow:0 0 8px currentColor; background:currentColor; }
+  #legend .ln { display:inline-block; width:22px; height:0; margin-right:6px; vertical-align:middle; border-top:2px solid #9aa3c7; }
+  #legend hr { border:0; border-top:1px solid var(--line); width:100%; margin:4px 0; }
+  #details { top:12px; right:12px; width:min(380px, calc(100vw - 24px)); max-height:calc(100vh - 230px); overflow:auto; display:none; }
+  #details h2 { margin:0 0 4px; font-size:17px; }
+  #details .path { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); word-break:break-all; }
+  #details p, #details li { font-size:13px; line-height:1.55; }
+  #details ul { padding-left:18px; margin:6px 0; }
+  #details h3 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:14px 0 4px; }
+  .analogy { border-left:3px solid var(--accent); padding-left:10px; color:#cfd5ff; font-style:italic; }
+  .why-inferred { border-left:3px solid #ffd84d; padding-left:10px; color:#ffe98a; }
+  .ev { font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); word-break:break-all; }
+  .kind { font-size:11px; color:var(--muted); }
+  .badge { display:inline-block; font-size:10px; font-weight:600; padding:2px 7px; border-radius:99px; text-transform:uppercase; letter-spacing:.06em; vertical-align:middle; margin-right:4px; }
+  .b-verified { background:#2ee6a62e; color:#7ff5c9; } .b-inferred { background:#ffd84d2e; color:#ffe98a; }
+  .b-request { background:#ffffff22; color:#fff; } .b-response { background:#4fc3ff2e; color:#9fe0ff; }
+  .b-planned { background:#9aa3c72e; color:#c9cfe8; } .b-optional { background:#5ce1e62e; color:#a5f0f2; }
+  .b-internal { background:#b36bff2e; color:#d6b3ff; } .b-async { background:#ff5cf02e; color:#ff9cf6; } .b-error { background:#ff4d4d2e; color:#ff9a9a; }
+  .linkbtn { background:none; border:0; padding:0; color:var(--accent); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+  .close { float:right; background:none; border:0; color:var(--muted); font-size:20px; cursor:pointer; }
+  #flowbar { bottom:12px; right:12px; width:min(480px, calc(100vw - 24px)); max-height:42vh; overflow:auto; }
+  #flowbar .controls { display:flex; gap:6px; flex-wrap:wrap; }
+  select, button { font:inherit; font-size:13px; color:var(--text); background:#1b2146; border:1px solid var(--line); border-radius:8px; padding:6px 10px; cursor:pointer; }
+  button:hover, select:hover { border-color:var(--accent); }
+  #details button.linkbtn, #crumbs button.linkbtn { border:0; background:none; padding:0; }
+  #caption { margin-top:10px; font-size:14px; line-height:1.55; min-height:44px; }
+  #caption .step { color:var(--accent); font-weight:600; font-size:12px; display:block; margin-bottom:2px; }
+  #caption .carries { font-size:12px; color:#cfd5ff; margin-top:4px; }
+  .label { color:#fff; font-size:12px; padding:2px 7px; border-radius:6px; background:#0009; white-space:nowrap; pointer-events:none; text-shadow:0 0 6px #000; }
+  .label.ghost { opacity:.55; }
+  .label.dim { opacity:.2; }
+  .layerTitle { font-size:13px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; opacity:.55; pointer-events:none; }
+  #err { position:fixed; inset:0; display:none; place-items:center; text-align:center; padding:24px; color:var(--muted); }
+  @media (max-width:1100px) { #crumbs { top:auto; bottom:calc(42vh + 24px); left:12px; transform:none; max-width:calc(100vw - 24px); } }
+  @media (max-width:700px) { #legend { display:none; } #top { max-height:28vh; } #crumbs .hint { display:none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="scene"></div>
+<div id="crumbs" class="panel"></div>
+<div id="top" class="panel">
+  <h1 id="title"></h1><p id="summary"></p><div class="chips" id="stack"></div>
+  <button id="aboutBtn">About this system</button>
+</div>
+<div id="legend" class="panel"></div>
+<div id="details" class="panel"></div>
+<div id="flowbar" class="panel">
+  <div class="controls">
+    <select id="flowSel" aria-label="Choose a workflow"></select>
+    <button id="play">▶ Play</button>
+    <button id="prev" aria-label="Previous step">◀</button>
+    <button id="next" aria-label="Next step">▶|</button>
+    <button id="reset">Reset view</button>
+  </div>
+  <div id="caption"></div>
+</div>
+<div id="err">Couldn't load the 3D library (needs internet for the CDN).<br>The data is still inside this file.</div>
+
+<script id="archviz-data" type="application/json">{"project": "AI Engineering Lab: the 7 pattern labs", "summary": "Seven LLM design patterns (RAG, fine-tuning, caching, guardrails, feedback, agent evals, observability), each built as a working, measured Python module on a shared core.", "stack": ["Python 3.10", "FastAPI", "SQLite", "numpy", "sentence-transformers (MiniLM)", "torch + transformers + peft (LoRA)", "httpx → DeepSeek / Groq"], "architecture": {"style": "Modular monolith: one FastAPI process, seven pattern modules on a shared core (tracing, providers, embeddings, SQLite), plus one subprocess job runner for training", "summary": "Each pattern lives in its own package (backend/lab/p01_rag … p07_observability) with its own router, logic and benchmark. They all lean on lab/core: one LLM client for DeepSeek and Groq, one embedder, one SQLite file, and one tracing helper. Every module wraps its work in tracing.span(...), so every request in every lab becomes a tree of spans that the observability lab (TraceLens) reads back. Two labs reuse others: SignalLoop (feedback) runs RAG questions through the Evidence Atlas pipeline, and TraceLens's demo-traffic button drives RAG, cache, guardrails and agents to create real traces.", "deployables": [{"name": "FastAPI backend (uvicorn)", "what": "Serves every lab's JSON API on 127.0.0.1:8000", "evidence": ["backend/lab/api.py:17-21", "Makefile:15-16"]}, {"name": "Training/eval subprocesses", "what": "LoRA training and model evaluation run as separate Python processes so the API stays responsive", "evidence": ["backend/lab/core/jobs.py:29-37"]}, {"name": "CLI experiment scripts", "what": "Each lab's benchmark can be run from the terminal (python -m lab.pXX...)", "evidence": ["Makefile:31-36"]}], "unknowns": ["No deployment config (Docker, cloud) in the repo: it is a local, single-user lab.", "Prefix/KV caching happens inside DeepSeek/Groq servers; the lab only reads the cached-token count they report back.", "DeepSeek prices in pricing.json are marked unverified by the author, so cost numbers for DeepSeek are approximate."]}, "groups": [{"id": "entry", "name": "Entry points", "what": "How work enters the backend: HTTP routes and background jobs", "color": "#64748b"}, {"id": "quality", "name": "Quality patterns", "what": "Patterns that make answers more correct: RAG, fine-tuning, agent evals", "color": "#22c55e"}, {"id": "risk", "name": "Cost / risk patterns", "what": "Patterns that make the system cheaper, safer and debuggable: caching, guardrails, observability", "color": "#f59e0b"}, {"id": "loop", "name": "Feedback loop", "what": "The flywheel that feeds both axes", "color": "#a855f7"}, {"id": "core", "name": "Shared core", "what": "Code every lab uses: LLM client, tracing, embeddings, redaction, DB", "color": "#3b82f6"}, {"id": "store", "name": "Local storage", "what": "SQLite files and on-disk artefacts", "color": "#0ea5e9"}, {"id": "ext", "name": "External models & APIs", "what": "Paid LLM APIs and downloaded open models", "color": "#ef4444"}], "nodes": [{"id": "api", "kind": "subsystem", "group": "entry", "label": "FastAPI app + job runner", "path": "backend/lab/api.py", "what": "The single web server. It mounts one router per lab and turns Python errors into clean HTTP errors.", "why": "Without it, the frontend would have no way to reach any lab. The error handlers make sure API keys never leak in error messages.", "analogy": "A building's reception desk that sends each visitor to the right floor.", "responsibilities": ["Mount the seven routers", "Map ProviderUnavailable→409, ProviderError→502, PermissionError→403, ValueError→400", "Report provider/embedder status"], "evidence": ["backend/lab/api.py:17-47"]}, {"id": "api.app", "kind": "component", "parent": "api", "label": "App + routers", "path": "backend/lab/api.py:17-21", "what": "Creates the FastAPI app and includes each lab's APIRouter (/api/rag, /api/finetune, /api/cache, /api/guard, /api/feedback, /api/agents, /api/traces…).", "evidence": ["backend/lab/api.py:9-21"], "weight": 3}, {"id": "api.errors", "kind": "component", "parent": "api", "label": "Error handlers", "path": "backend/lab/api.py:24-41", "what": "Converts provider and permission errors into HTTP status codes, scrubbing secrets first.", "evidence": ["backend/lab/api.py:24-41"]}, {"id": "core", "kind": "subsystem", "group": "core", "label": "Shared core", "path": "backend/lab/core", "what": "Small helpers every lab imports: config, the one LLM client, tracing, embeddings, PII/secret redaction, SQLite access and the job runner.", "why": "Putting these in one place means every lab is traced, redacted and billed the same way. That shared trace schema is what lets evals and observability talk to each other (PDF chapter 7).", "responsibilities": ["Call DeepSeek/Groq with retries and cost tracking", "Record nested spans", "Embed text", "Redact PII and secrets before storage", "Spawn long jobs"], "evidence": ["backend/lab/core/tracing.py:1-6", "backend/lab/core/providers.py:1-6"]}, {"id": "core.providers", "kind": "component", "parent": "core", "label": "providers.py (LLM client)", "path": "backend/lab/core/providers.py", "what": "One httpx client for both providers (both speak the OpenAI chat-completions format). Retries 429/5xx with backoff, reads token usage and cached tokens, and computes cost.", "evidence": ["backend/lab/core/providers.py:116-190"], "weight": 5}, {"id": "core.tracing", "kind": "component", "parent": "core", "label": "tracing.py (spans)", "path": "backend/lab/core/tracing.py", "what": "The `with span(...)` context manager. A ContextVar remembers the current span, so spans nest automatically. Content is stored only as length+hash unless capture is turned on.", "evidence": ["backend/lab/core/tracing.py:72-139"], "weight": 5}, {"id": "core.embeddings", "kind": "component", "parent": "core", "label": "embeddings.py", "path": "backend/lab/core/embeddings.py", "what": "Turns text into vectors with MiniLM, or a hash-based fallback if MiniLM can't load. Also provides exact cosine search.", "evidence": ["backend/lab/core/embeddings.py:43-87"], "weight": 4}, {"id": "core.redaction", "kind": "component", "parent": "core", "label": "redaction.py", "path": "backend/lab/core/redaction.py", "what": "Finds and masks PII (emails, phones, cards with a Luhn check) and scrubs API keys from any text.", "evidence": ["backend/lab/core/redaction.py:21-92"]}, {"id": "core.db", "kind": "component", "parent": "core", "label": "db.py", "path": "backend/lab/core/db.py", "what": "Opens the shared SQLite file (WAL mode). Each lab creates its own tables on first use.", "evidence": ["backend/lab/core/db.py:13-36"]}, {"id": "core.jobs", "kind": "component", "parent": "core", "label": "jobs.py (subprocess runner)", "path": "backend/lab/core/jobs.py", "what": "Starts training/eval as a separate `python -m ...` process, writes a pid file and log, and allows one job per name.", "evidence": ["backend/lab/core/jobs.py:29-37"]}, {"id": "rag", "kind": "subsystem", "group": "quality", "label": "01 Evidence Atlas (RAG)", "path": "backend/lab/p01_rag", "what": "Answers questions over a 15-document investigation corpus with hybrid retrieval, an evidence gate, citations and verification.", "why": "Shows the full RAG pipeline from the PDF: incremental indexing, BM25 + vectors fused with RRF, access control, abstention and citation checks. Without retrieval the LLM would guess.", "analogy": "A research librarian who fetches the right pages before anyone writes an answer.", "responsibilities": ["Chunk + embed docs incrementally", "Hybrid retrieve with ACL pre-filter", "Gate, generate, cite, verify", "Benchmark retrieval vs answers separately"], "data": {"owns": ["rag_docs table", "in-memory index (chunks, vectors, BM25)"], "receives": ["question + retrieval config"], "produces": ["answer, citations, verification, trace_id"]}, "evidence": ["backend/lab/p01_rag/pipeline.py:1-26"]}, {"id": "rag.index", "kind": "component", "parent": "rag", "label": "index.py (chunk, embed, BM25)", "path": "backend/lab/p01_rag/index.py", "what": "Loads fixture + ingested docs, chunks them, and re-embeds only documents whose content hash changed. Refuses to mix vectors from different embedders.", "evidence": ["backend/lab/p01_rag/index.py:196-230"], "weight": 4}, {"id": "rag.retrieve", "kind": "component", "parent": "rag", "label": "retrieve.py (hybrid + rerank)", "path": "backend/lab/p01_rag/retrieve.py", "what": "Applies the role-based access filter first, scores with BM25 and dense vectors, fuses with reciprocal rank fusion (k=60), reranks, demotes superseded docs, and fits a word budget.", "evidence": ["backend/lab/p01_rag/retrieve.py:67-125"], "weight": 5}, {"id": "rag.generate", "kind": "component", "parent": "rag", "label": "generate.py (gate, LLM, verify)", "path": "backend/lab/p01_rag/generate.py", "what": "Abstains if evidence is too weak; otherwise answers (offline extractive or LLM) and verifies every [S#] citation and quote.", "evidence": ["backend/lab/p01_rag/generate.py:158-176"], "weight": 4}, {"id": "rag.pipeline", "kind": "component", "parent": "rag", "label": "pipeline.py ask()", "path": "backend/lab/p01_rag/pipeline.py", "what": "The end-to-end function: index → retrieve → generate, all inside one rag.ask trace.", "evidence": ["backend/lab/p01_rag/pipeline.py:11-26"]}, {"id": "rag.eval", "kind": "component", "parent": "rag", "label": "evaluate.py (benchmark)", "path": "backend/lab/p01_rag/evaluate.py", "what": "Runs 24 labelled questions and scores retrieval (recall, MRR) separately from answers.", "evidence": ["backend/lab/p01_rag/evaluate.py:50-60"]}, {"id": "ft", "kind": "subsystem", "group": "quality", "label": "02 IntentForge (fine-tuning)", "path": "backend/lab/p02_finetune", "what": "Builds a clean dataset, trains a real LoRA adapter on SmolLM2-135M, and compares it with rules, prompting, constrained decoding and an API model.", "why": "Demonstrates 'fine-tune second, not first': it measures the prompting baseline, proves the base weights stay frozen, and catches catastrophic forgetting.", "responsibilities": ["Generate + clean + dedup + hash-split data", "Train LoRA (r=16) in a subprocess", "Evaluate on test, OOD and general slices"], "evidence": ["backend/lab/p02_finetune/train.py:30-100"]}, {"id": "ft.data", "kind": "component", "parent": "ft", "label": "data.py", "path": "backend/lab/p02_finetune/data.py", "what": "Synthesises ~700 examples, deliberately corrupts some, then cleans, deduplicates and splits by content hash so near-copies can't leak into test.", "evidence": ["backend/lab/p02_finetune/data.py:187-195"]}, {"id": "ft.schema", "kind": "component", "parent": "ft", "label": "schema.py", "path": "backend/lab/p02_finetune/schema.py", "what": "The strict 7-field Decision model plus business rules and per-field scoring.", "evidence": ["backend/lab/p02_finetune/schema.py:12-91"]}, {"id": "ft.model", "kind": "component", "parent": "ft", "label": "model.py (LoRA, constrained decoding)", "path": "backend/lab/p02_finetune/model.py", "what": "Loads the base model, attaches LoRA to q/k/v/o projections, runs the explicit training loop, and offers schema-constrained generation.", "evidence": ["backend/lab/p02_finetune/model.py:15-16", "backend/lab/p02_finetune/model.py:83-90"], "weight": 4}, {"id": "ft.train", "kind": "component", "parent": "ft", "label": "train.py", "path": "backend/lab/p02_finetune/train.py", "what": "One training run: checksums a frozen weight before and after, trains, saves the adapter and metadata.", "evidence": ["backend/lab/p02_finetune/train.py:30-95"]}, {"id": "ft.eval", "kind": "component", "parent": "ft", "label": "evaluate.py", "path": "backend/lab/p02_finetune/evaluate.py", "what": "Scores each system (rules, base, adapter, constrained, API) on the same held-out slices.", "evidence": ["backend/lab/p02_finetune/evaluate.py:60-120"]}, {"id": "cache", "kind": "subsystem", "group": "risk", "label": "03 CacheCraft (caching)", "path": "backend/lab/p03_cache", "what": "An FAQ gateway: exact cache → semantic cache → upstream model, with write-through, TTL, per-user scoping and dependency-based invalidation.", "why": "Shows why the similarity threshold is the whole design problem and how to avoid stale or cross-user answers.", "responsibilities": ["Build cache keys (config fingerprint + scope)", "Evict on TTL or changed article version", "Semantic match above a threshold", "Write misses back to the cache"], "evidence": ["backend/lab/p03_cache/gateway.py:203-288"]}, {"id": "cache.gateway", "kind": "component", "parent": "cache", "label": "gateway.py ask()", "path": "backend/lab/p03_cache/gateway.py", "what": "Serves one request through the cache layers and logs a cache event.", "evidence": ["backend/lab/p03_cache/gateway.py:203-288"], "weight": 5}, {"id": "cache.workload", "kind": "component", "parent": "cache", "label": "workload.py", "path": "backend/lab/p03_cache/workload.py", "what": "A labelled 240-query stream and a threshold sweep that score every hit as correct or false.", "evidence": ["backend/lab/p03_cache/workload.py:61-71"]}, {"id": "guard", "kind": "subsystem", "group": "risk", "label": "04 TrustBoundary (guardrails)", "path": "backend/lab/p04_guardrails", "what": "Triage of untrusted documents into tool actions, protected by input detectors, a schema retry loop, a policy engine, human approval and three-layer SQL least privilege.", "why": "Shows layered defence: each layer catches what the others miss (e.g. SELECT * passes the text check but the engine authorizer blocks it).", "analogy": "Airport security: bag scan, passport check, and a locked door at the gate.", "responsibilities": ["Detect injection + redact PII", "Generate → validate → retry → fail closed", "Allow / require approval / deny per action", "Run SQL read-only with an authorizer"], "evidence": ["backend/lab/p04_guardrails/pipeline.py:165-200"]}, {"id": "guard.detectors", "kind": "component", "parent": "guard", "label": "detectors.py (input)", "path": "backend/lab/p04_guardrails/detectors.py", "what": "Normalises text, finds hidden/base64 instructions, scores injection risk, optionally asks Groq Prompt Guard, and redacts PII.", "evidence": ["backend/lab/p04_guardrails/detectors.py:58-102"]}, {"id": "guard.pipeline", "kind": "component", "parent": "guard", "label": "pipeline.py process()", "path": "backend/lab/p04_guardrails/pipeline.py", "what": "Runs the whole chain and logs every guardrail trigger.", "evidence": ["backend/lab/p04_guardrails/pipeline.py:165-260"], "weight": 5}, {"id": "guard.policy", "kind": "component", "parent": "guard", "label": "policy.py", "path": "backend/lab/p04_guardrails/policy.py", "what": "The real boundary: role→tool grants, strict argument schemas, recipient/link rules, taint, and risk tiers that require human approval.", "evidence": ["backend/lab/p04_guardrails/policy.py:51-98"]}, {"id": "guard.sqlguard", "kind": "component", "parent": "guard", "label": "sqlguard.py (3-layer SQL)", "path": "backend/lab/p04_guardrails/sqlguard.py", "what": "Text validator + read-only connection (mode=ro, query_only) + SQLite authorizer callback that denies sensitive columns at execution time.", "evidence": ["backend/lab/p04_guardrails/sqlguard.py:59-116"], "weight": 4}, {"id": "guard.adv", "kind": "component", "parent": "guard", "label": "adversarial.py", "path": "backend/lab/p04_guardrails/adversarial.py", "what": "Runs a 30-case attack/benign corpus and reports which layer stopped each attack.", "evidence": ["backend/lab/p04_guardrails/adversarial.py:77-90"]}, {"id": "fb", "kind": "subsystem", "group": "loop", "label": "05 SignalLoop (feedback)", "path": "backend/lab/p05_feedback", "what": "A research assistant (built on the RAG lab) that collects ratings, corrections and implicit signals, curates them through review, freezes eval sets and gates releases.", "why": "Shows a safe flywheel: raw feedback never goes straight into a dataset, and a release can't be promoted without passing the gate.", "responsibilities": ["Collect + pseudonymise + redact", "Review queue (approval is the only path in)", "Freeze hashed eval sets", "Gate and promote releases"], "evidence": ["backend/lab/p05_feedback/service.py:76-330"]}, {"id": "fb.collect", "kind": "component", "parent": "fb", "label": "Collect (ask, rate, signal)", "path": "backend/lab/p05_feedback/service.py:55-128", "what": "Answers with the production release's RAG config, stores the interaction with a salted user hash, and records feedback with PII redacted.", "evidence": ["backend/lab/p05_feedback/service.py:55-128"]}, {"id": "fb.curate", "kind": "component", "parent": "fb", "label": "Curate (queue, review, delete)", "path": "backend/lab/p05_feedback/service.py:137-226", "what": "Clusters and scores feedback, lets a reviewer approve it into a dataset, and cascades deletions into derived examples and eval sets.", "evidence": ["backend/lab/p05_feedback/service.py:164-213"]}, {"id": "fb.release", "kind": "component", "parent": "fb", "label": "Release gate + promote", "path": "backend/lab/p05_feedback/service.py:228-328", "what": "Runs candidate vs production on a frozen, hash-checked eval set; promotion raises PermissionError (HTTP 403) without a passing gate.", "evidence": ["backend/lab/p05_feedback/service.py:282-328"], "weight": 4}, {"id": "ag", "kind": "subsystem", "group": "quality", "label": "06 MissionReplay (agent evals)", "path": "backend/lab/p06_agent_evals", "what": "A deterministic emergency-dispatch simulator where agents (careful, reckless, LLM) call nine tools; runs are scored on the whole trajectory.", "why": "A right final message isn't enough: the evaluator checks tool recall, action precision, argument validity, safety and grounding.", "responsibilities": ["Simulate a changing world + faults", "Run agents in a bounded tool loop", "Score trajectories", "Optional LLM judge"], "evidence": ["backend/lab/p06_agent_evals/agents.py:146-169"]}, {"id": "ag.sim", "kind": "component", "parent": "ag", "label": "sim.py (world + tools)", "path": "backend/lab/p06_agent_evals/sim.py", "what": "The simulated world: validates tool arguments, advances the timeline (casualties rise, roads close), enforces budget.", "evidence": ["backend/lab/p06_agent_evals/sim.py:75-203"]}, {"id": "ag.agents", "kind": "component", "parent": "ag", "label": "agents.py (loop + recorder)", "path": "backend/lab/p06_agent_evals/agents.py", "what": "Three agents. The LLM agent loops until it calls finish or hits max_steps; the Recorder turns each tool call into a span.", "evidence": ["backend/lab/p06_agent_evals/agents.py:109-143"], "weight": 4}, {"id": "ag.eval", "kind": "component", "parent": "ag", "label": "evaluate.py (trajectory scoring)", "path": "backend/lab/p06_agent_evals/evaluate.py", "what": "Scores a run's steps and final state; stores runs; optional LLM judge.", "evidence": ["backend/lab/p06_agent_evals/evaluate.py:38-160"], "weight": 4}, {"id": "obs", "kind": "subsystem", "group": "risk", "label": "07 TraceLens (observability)", "path": "backend/lab/p07_observability", "what": "Reads the span table every other lab writes: trace search and waterfall, p50/p95/p99, cost, failures, PSI drift and alerts.", "why": "Lets you diagnose a request after the fact. Because evals and production share one span schema, an agent run is just another trace.", "responsibilities": ["Search and compare traces", "Percentiles, cost, error rates", "PSI drift between windows", "Alert rules + retention purge"], "evidence": ["backend/lab/p07_observability/metrics.py:32-304"]}, {"id": "obs.metrics", "kind": "component", "parent": "obs", "label": "metrics.py", "path": "backend/lab/p07_observability/metrics.py", "what": "All read-side analysis over the spans table, plus alert evaluation.", "evidence": ["backend/lab/p07_observability/metrics.py:195-228"], "weight": 4}, {"id": "obs.api", "kind": "component", "parent": "obs", "label": "api.py (playground, demo traffic)", "path": "backend/lab/p07_observability/api.py", "what": "Trace endpoints plus a traced LLM playground and a button that generates real offline traffic through the other labs.", "evidence": ["backend/lab/p07_observability/api.py:88-113"]}, {"id": "labdb", "kind": "external", "group": "store", "label": "SQLite var/lab.db", "what": "One shared database file. Holds spans, rag_docs, cache entries/events, guard log/approvals, feedback tables, agent runs and alerts.", "evidence": ["backend/lab/core/db.py:9-10"]}, {"id": "anadb", "kind": "external", "group": "store", "label": "SQLite var/p04/analytics.db", "what": "A seeded sample business database (customers, orders, a fake secret) that the SQL guard queries read-only.", "evidence": ["backend/lab/p04_guardrails/sqlguard.py:26-30"]}, {"id": "files", "kind": "external", "group": "store", "label": "Files: data/ + var/", "what": "Committed fixtures (corpus, benchmarks, KB, adversarial cases, scenarios) and runtime artefacts (datasets, adapters, eval results, job logs).", "evidence": ["backend/lab/core/config.py:5-7", "backend/lab/core/config.py:36-40"]}, {"id": "deepseek", "kind": "external", "group": "ext", "label": "DeepSeek API", "status": "optional", "what": "OpenAI-compatible chat API at api.deepseek.com. Used only when DEEPSEEK_API_KEY is set and offline mode is off.", "evidence": ["backend/lab/core/providers.py:18-20", "backend/lab/core/providers.py:79-82"]}, {"id": "groq", "kind": "external", "group": "ext", "label": "Groq API", "status": "optional", "what": "OpenAI-compatible chat API (gpt-oss models and Llama Prompt Guard). Used only when GROQ_API_KEY is set.", "evidence": ["backend/lab/core/providers.py:21-22"]}, {"id": "hf", "kind": "external", "group": "ext", "label": "Local HF models", "status": "optional", "what": "Downloaded open models run on CPU: MiniLM embeddings, the ms-marco cross-encoder, and SmolLM2-135M for LoRA. Need the ML extras installed.", "evidence": ["backend/lab/core/embeddings.py:43-52", "backend/lab/p02_finetune/model.py:15"]}], "links": [{"from": "api.app", "to": "rag.pipeline", "kind": "call", "label": "POST /api/rag/ask → ask()", "confidence": "verified", "evidence": ["backend/lab/p01_rag/api.py:86-89"]}, {"from": "api.app", "to": "rag.eval", "kind": "call", "label": "POST /api/rag/evaluate → run_benchmark()", "confidence": "verified", "evidence": ["backend/lab/p01_rag/api.py:104-107"]}, {"from": "api.app", "to": "ft.data", "kind": "call", "label": "POST /api/finetune/dataset/build", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:52-56"]}, {"from": "api.app", "to": "core.jobs", "kind": "call", "label": "POST /api/finetune/train · /evaluate → jobs.spawn", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:67-78", "backend/lab/p02_finetune/api.py:96-106"]}, {"from": "core.jobs", "to": "ft.train", "kind": "call", "async": true, "label": "subprocess: python -m lab.p02_finetune.train", "confidence": "verified", "evidence": ["backend/lab/core/jobs.py:29-37", "backend/lab/p02_finetune/api.py:75"]}, {"from": "core.jobs", "to": "ft.eval", "kind": "call", "async": true, "label": "subprocess: python -m lab.p02_finetune.evaluate", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:105"]}, {"from": "api.app", "to": "cache.gateway", "kind": "call", "label": "POST /api/cache/ask → ask()", "confidence": "verified", "evidence": ["backend/lab/p03_cache/api.py:35-37"]}, {"from": "api.app", "to": "guard.pipeline", "kind": "call", "label": "POST /api/guard/process → process()", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/api.py:27-32"]}, {"from": "api.app", "to": "guard.sqlguard", "kind": "call", "label": "POST /api/guard/sql → validate + execute", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/api.py:76-98"]}, {"from": "api.app", "to": "fb.collect", "kind": "call", "label": "POST /api/feedback/ask · rate · signal", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/api.py:15-47"]}, {"from": "api.app", "to": "fb.release", "kind": "call", "label": "POST /api/feedback/releases/{id}/gate · promote", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/api.py:123-134"]}, {"from": "api.app", "to": "fb.curate", "kind": "call", "label": "POST /api/feedback/items/{id}/review", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/api.py:64-71"]}, {"from": "api.app", "to": "ag.eval", "kind": "call", "label": "POST /api/agents/run → run_and_store()", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/api.py:30-35"]}, {"from": "api.app", "to": "obs.metrics", "kind": "call", "label": "GET /api/traces · /api/observability/*", "confidence": "verified", "evidence": ["backend/lab/p07_observability/api.py:12-56"]}, {"from": "rag.pipeline", "to": "rag.index", "kind": "call", "label": "get_index() (sync changed docs)", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:18"]}, {"from": "rag.pipeline", "to": "rag.retrieve", "kind": "call", "label": "retrieve(index, question)", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:19"]}, {"from": "rag.pipeline", "to": "rag.generate", "kind": "call", "label": "answer(hits)", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:20"]}, {"from": "rag.eval", "to": "rag.retrieve", "kind": "call", "label": "retrieve + answer per benchmark item", "confidence": "verified", "evidence": ["backend/lab/p01_rag/evaluate.py:52-57"]}, {"from": "rag.index", "to": "core.embeddings", "kind": "call", "label": "embed new/changed chunks only", "confidence": "verified", "evidence": ["backend/lab/p01_rag/index.py:197-207"]}, {"from": "rag.index", "to": "labdb", "kind": "db", "label": "SELECT / INSERT rag_docs", "confidence": "verified", "evidence": ["backend/lab/p01_rag/index.py:84-101"]}, {"from": "rag.index", "to": "files", "kind": "file", "label": "reads data/p01/corpus/*.md", "confidence": "verified", "evidence": ["backend/lab/p01_rag/index.py:21"]}, {"from": "rag.retrieve", "to": "core.embeddings", "kind": "call", "label": "embed the query", "confidence": "verified", "evidence": ["backend/lab/p01_rag/retrieve.py:79"]}, {"from": "rag.retrieve", "to": "hf", "kind": "model", "label": "cross-encoder rerank (optional)", "confidence": "verified", "evidence": ["backend/lab/p01_rag/retrieve.py:59-63", "backend/lab/p01_rag/retrieve.py:104-105"]}, {"from": "rag.generate", "to": "core.providers", "kind": "model", "label": "chat(sources + question)", "confidence": "verified", "evidence": ["backend/lab/p01_rag/generate.py:103-108"]}, {"from": "rag.pipeline", "to": "core.tracing", "kind": "call", "label": "span rag.ask", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:16-17"]}, {"from": "ft.data", "to": "ft.schema", "kind": "import", "label": "Decision + business_errors", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/data.py:19"]}, {"from": "ft.data", "to": "files", "kind": "file", "label": "writes var/p02/dataset/*.jsonl", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/data.py:193-195"]}, {"from": "ft.train", "to": "ft.model", "kind": "call", "label": "load_base, attach_lora, train_loop", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/train.py:43-48", "backend/lab/p02_finetune/train.py:66"]}, {"from": "ft.model", "to": "hf", "kind": "model", "label": "SmolLM2-135M-Instruct + peft LoRA", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/model.py:41-52", "backend/lab/p02_finetune/model.py:83-86"]}, {"from": "ft.train", "to": "files", "kind": "file", "label": "saves adapter + metadata + status.json", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/train.py:69", "backend/lab/p02_finetune/train.py:92-94"]}, {"from": "ft.eval", "to": "ft.schema", "kind": "import", "label": "score + aggregate", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/evaluate.py:20"]}, {"from": "ft.eval", "to": "core.providers", "kind": "model", "label": "API baseline (JSON mode)", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/evaluate.py:77"]}, {"from": "ft.eval", "to": "ft.model", "kind": "call", "label": "load base + PeftModel adapter", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/evaluate.py:88-95"]}, {"from": "cache.gateway", "to": "labdb", "kind": "db", "label": "SELECT/DELETE/INSERT cache_entries, cache_events", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:220-229", "backend/lab/p03_cache/gateway.py:276-282"]}, {"from": "cache.gateway", "to": "core.embeddings", "kind": "call", "label": "embed question for semantic lookup", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:238-242"]}, {"from": "cache.gateway", "to": "core.providers", "kind": "model", "label": "upstream chat on miss", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:174-178"]}, {"from": "cache.workload", "to": "cache.gateway", "kind": "call", "label": "ask() for each labelled query", "confidence": "verified", "evidence": ["backend/lab/p03_cache/workload.py:71"]}, {"from": "cache.gateway", "to": "core.tracing", "kind": "call", "label": "span cache.ask + hit/miss events", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:217", "backend/lab/p03_cache/gateway.py:284"]}, {"from": "guard.pipeline", "to": "guard.detectors", "kind": "call", "label": "inspect(document)", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:177"]}, {"from": "guard.detectors", "to": "core.redaction", "kind": "call", "label": "redact_pii before the model sees text", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/detectors.py:95"]}, {"from": "guard.detectors", "to": "core.providers", "kind": "model", "label": "Groq llama-prompt-guard-2-86m (optional)", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/detectors.py:74-81"]}, {"from": "guard.pipeline", "to": "core.providers", "kind": "model", "label": "LLM planner (JSON mode)", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:107-114"]}, {"from": "guard.pipeline", "to": "guard.policy", "kind": "call", "label": "decide(action, role, taint)", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:203"]}, {"from": "guard.policy", "to": "guard.sqlguard", "kind": "call", "label": "validate SQL args", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/policy.py:68"]}, {"from": "guard.pipeline", "to": "guard.sqlguard", "kind": "tool", "label": "run_tool query_db → execute", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:146-149"]}, {"from": "guard.sqlguard", "to": "anadb", "kind": "db", "label": "read-only connect + authorizer", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/sqlguard.py:105-108"]}, {"from": "guard.pipeline", "to": "labdb", "kind": "db", "label": "INSERT guard_log, guard_approvals, tickets, outbox", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:58-62", "backend/lab/p04_guardrails/pipeline.py:215-216"]}, {"from": "guard.adv", "to": "guard.pipeline", "kind": "call", "label": "process() per corpus case", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/adversarial.py:82"]}, {"from": "fb.collect", "to": "rag.pipeline", "kind": "call", "label": "rag_ask with production release config", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:24", "backend/lab/p05_feedback/service.py:70-72"]}, {"from": "fb.collect", "to": "core.redaction", "kind": "call", "label": "redact comments + corrections", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:98"]}, {"from": "fb.collect", "to": "labdb", "kind": "db", "label": "INSERT fb_interactions, fb_feedback, fb_signals", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:82", "backend/lab/p05_feedback/service.py:106-111"]}, {"from": "fb.curate", "to": "labdb", "kind": "db", "label": "INSERT fb_examples on approval", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:180-181"]}, {"from": "fb.release", "to": "rag.eval", "kind": "call", "label": "run_benchmark on frozen set (baseline vs candidate)", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:22", "backend/lab/p05_feedback/service.py:273-275"]}, {"from": "fb.release", "to": "labdb", "kind": "db", "label": "read fb_evalsets; UPDATE fb_releases", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:285-286", "backend/lab/p05_feedback/service.py:324-325"]}, {"from": "ag.eval", "to": "ag.agents", "kind": "call", "label": "run_agent(scenario, agent)", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/evaluate.py:151-153"]}, {"from": "ag.agents", "to": "ag.sim", "kind": "tool", "label": "sim.call(tool, args)", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:24-27"]}, {"from": "ag.agents", "to": "core.providers", "kind": "model", "label": "chat(tools=…) each loop turn", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:112-115"]}, {"from": "ag.agents", "to": "core.tracing", "kind": "call", "label": "one span per tool call", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:26"]}, {"from": "ag.eval", "to": "labdb", "kind": "db", "label": "INSERT agent_runs", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/evaluate.py:156-158"]}, {"from": "ag.eval", "to": "core.providers", "kind": "model", "label": "LLM judge (optional)", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/evaluate.py:138-144"]}, {"from": "obs.metrics", "to": "labdb", "kind": "db", "label": "SELECT * FROM spans", "confidence": "verified", "evidence": ["backend/lab/p07_observability/metrics.py:32-35"]}, {"from": "obs.api", "to": "core.providers", "kind": "model", "label": "traced playground call", "confidence": "verified", "evidence": ["backend/lab/p07_observability/api.py:88-93"]}, {"from": "obs.api", "to": "rag.pipeline", "kind": "call", "label": "demo traffic: 10 RAG questions", "confidence": "verified", "evidence": ["backend/lab/p07_observability/api.py:104-110"]}, {"from": "obs.api", "to": "cache.gateway", "kind": "call", "label": "demo traffic: cache asks", "confidence": "verified", "evidence": ["backend/lab/p07_observability/api.py:106-113"]}, {"from": "core.providers", "to": "core.tracing", "kind": "call", "label": "llm span with tokens + cost", "confidence": "verified", "evidence": ["backend/lab/core/providers.py:135-136", "backend/lab/core/providers.py:187"]}, {"from": "core.providers", "to": "deepseek", "kind": "http", "label": "POST /chat/completions", "confidence": "verified", "evidence": ["backend/lab/core/providers.py:139-143"]}, {"from": "core.providers", "to": "groq", "kind": "http", "label": "POST /chat/completions", "confidence": "verified", "evidence": ["backend/lab/core/providers.py:139-143"]}, {"from": "core.tracing", "to": "core.redaction", "kind": "call", "label": "redact/hash content before write", "confidence": "verified", "evidence": ["backend/lab/core/tracing.py:79-99"]}, {"from": "core.tracing", "to": "labdb", "kind": "db", "label": "INSERT INTO spans", "confidence": "verified", "evidence": ["backend/lab/core/tracing.py:113-121"]}, {"from": "core.embeddings", "to": "hf", "kind": "model", "label": "MiniLM encode (hash fallback)", "confidence": "verified", "evidence": ["backend/lab/core/embeddings.py:47-56", "backend/lab/core/embeddings.py:63-77"]}], "flows": [{"name": "RAG question (Evidence Atlas)", "trigger": "User asks a question in Evidence Atlas", "description": "Shows the full retrieve → gate → generate → verify chain and how each stage limits what the next can do.", "steps": [{"from": "api.app", "to": "rag.pipeline", "kind": "request", "text": "The router validates the request with pydantic (question length, k, strategy) and calls ask(). A root span rag.ask starts, so everything below is one trace.", "data": "{question, index cfg, retrieval cfg, use_llm}", "confidence": "verified", "evidence": ["backend/lab/p01_rag/api.py:86-89", "backend/lab/p01_rag/pipeline.py:16-17"]}, {"from": "rag.pipeline", "to": "rag.index", "kind": "internal", "text": "get_index syncs the corpus: only documents whose hash changed are re-chunked and re-embedded. This is the PDF's incremental indexing.", "data": "documents → chunks + vectors + BM25", "confidence": "verified", "evidence": ["backend/lab/p01_rag/index.py:227-230", "backend/lab/p01_rag/index.py:203-207"]}, {"from": "rag.pipeline", "to": "rag.retrieve", "kind": "request", "text": "Access control runs first: chunks the role can't see are excluded before ranking, so they can never reach the prompt.", "data": "role → allowed mask", "confidence": "verified", "evidence": ["backend/lab/p01_rag/retrieve.py:73-74"]}, {"from": "rag.retrieve", "to": "core.embeddings", "kind": "request", "text": "The query is embedded and compared with every chunk vector (exact numpy scan). BM25 scores are computed in parallel for exact IDs like 'POL-001-v3'.", "data": "query → 384-dim vector → cosine scores", "confidence": "verified", "evidence": ["backend/lab/p01_rag/retrieve.py:76-79"]}, {"from": "rag.retrieve", "to": "rag.retrieve", "kind": "internal", "text": "Reciprocal rank fusion merges the two lists (1/(60+rank)), then a reranker reorders, superseded docs are halved, and chunks are added until the word budget. The top-k become the only knowledge the model will see.", "data": "candidates → top-k hits with scores", "confidence": "verified", "evidence": ["backend/lab/p01_rag/retrieve.py:87-91", "backend/lab/p01_rag/retrieve.py:99-122"]}, {"from": "rag.pipeline", "to": "rag.generate", "kind": "request", "text": "The evidence gate checks the hits really cover the question. If not, the system abstains instead of guessing (graceful degradation).", "data": "hits → coverage score", "confidence": "verified", "evidence": ["backend/lab/p01_rag/generate.py:161-165"]}, {"from": "rag.generate", "to": "core.providers", "kind": "request", "text": "With LLM on, the numbered sources and the question are sent to DeepSeek/Groq. The call becomes an llm span with real tokens and cost.", "data": "messages [system, Sources [S1..Sk] + question]", "confidence": "verified", "evidence": ["backend/lab/p01_rag/generate.py:103-108", "backend/lab/core/providers.py:135-136"]}, {"from": "rag.generate", "to": "rag.generate", "kind": "internal", "text": "verify() checks every [S#] points to a real passage and that quotes and numbers appear in the cited text. Invalid citations mark the span as failed.", "data": "answer → verification + citations", "confidence": "verified", "evidence": ["backend/lab/p01_rag/generate.py:170-175"]}, {"from": "rag.pipeline", "to": "api.app", "kind": "response", "text": "The answer, hits, citations, verification and trace_id go back. The trace_id lets you open the same request in TraceLens.", "data": "JSON {answer, abstained, hits, citations, verification, trace_id}", "confidence": "verified", "evidence": ["backend/lab/p01_rag/pipeline.py:21-26"]}]}, {"name": "Cached FAQ request (CacheCraft)", "trigger": "A user asks an FAQ question", "description": "Exact → semantic → upstream, with invalidation checks before anything is served and write-through on a miss.", "steps": [{"from": "api.app", "to": "cache.gateway", "kind": "request", "text": "The question is classified as global, per-user or volatile. Volatile questions (live status) bypass the cache entirely.", "data": "{question, user_id, cache config}", "confidence": "verified", "evidence": ["backend/lab/p03_cache/api.py:35-37", "backend/lab/p03_cache/gateway.py:210-212"]}, {"from": "cache.gateway", "to": "labdb", "kind": "request", "text": "Candidates are loaded only within the same config fingerprint and scope key. Per-user scoping is what stops one user's balance being served to another.", "data": "SELECT cache_entries WHERE namespace, fingerprint, scope_key", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:220-221"]}, {"from": "cache.gateway", "to": "cache.gateway", "kind": "internal", "text": "Entries whose TTL expired, or whose source article version changed, are evicted before they can be served. This is dependency-based invalidation.", "data": "entry.deps_json vs current article versions", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:223-231"]}, {"from": "cache.gateway", "to": "core.embeddings", "kind": "request", "text": "No exact hit? The question is embedded and compared with cached questions. A hit needs similarity ≥ threshold; just below it is logged as a 'rejected match'.", "data": "query vector · cached vectors → similarity", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:234-248"]}, {"from": "cache.gateway", "to": "core.providers", "kind": "request", "text": "On a miss, the relevant FAQ articles are routed in as context and the model is called. Article versions are kept as dependencies.", "data": "FAQ articles + question → answer, deps", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:165-178", "backend/lab/p03_cache/gateway.py:264"]}, {"from": "cache.gateway", "to": "labdb", "kind": "request", "text": "Write-through: the new answer, its embedding and dependencies are stored so the next similar question is a hit.", "data": "INSERT cache_entries", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:275-282"]}, {"from": "cache.gateway", "to": "api.app", "kind": "response", "text": "The response says hit_exact / hit_semantic / miss / bypass, with similarity, latency and cost avoided.", "data": "JSON {event, answer, similarity, cost_usd, trace_id}", "confidence": "verified", "evidence": ["backend/lab/p03_cache/gateway.py:284-288"]}]}, {"name": "Untrusted document → actions (TrustBoundary)", "trigger": "Analyst submits an email/document for triage", "description": "Layered guardrails: detect, plan with retries, enforce policy per action, then require humans for risky actions.", "steps": [{"from": "api.app", "to": "guard.pipeline", "kind": "request", "text": "The document enters with a role (analyst, etc.). A guard.process root span starts.", "data": "{document, role, mode, thresholds}", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/api.py:27-32", "backend/lab/p04_guardrails/pipeline.py:174"]}, {"from": "guard.pipeline", "to": "guard.detectors", "kind": "request", "text": "Input guardrails: normalise Unicode, find hidden or base64 instructions, score injection risk, redact PII.", "data": "document → risk score, redacted text", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:177", "backend/lab/p04_guardrails/detectors.py:91-95"]}, {"from": "guard.pipeline", "to": "api.app", "kind": "error", "text": "If risk ≥ the block threshold, the request is blocked before any model call. Between flag and block thresholds the input is 'tainted' and side effects need approval.", "data": "status blocked", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:186-189"]}, {"from": "guard.pipeline", "to": "core.providers", "kind": "request", "text": "The planner proposes actions as JSON. Invalid output is retried up to 2 times with the error fed back, then the system fails closed and executes nothing.", "data": "redacted doc → Triage{actions, summary}", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:117-118", "backend/lab/p04_guardrails/pipeline.py:192-198"]}, {"from": "guard.pipeline", "to": "guard.policy", "kind": "request", "text": "Every proposed action passes the policy engine: is this tool granted to this role, are the arguments valid, is it high risk?", "data": "action + role + taint → allow | approval | deny", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:203", "backend/lab/p04_guardrails/policy.py:51-52"]}, {"from": "guard.pipeline", "to": "guard.sqlguard", "kind": "request", "text": "Allowed SQL runs on a read-only connection with an authorizer that denies sensitive columns while the query executes.", "data": "SELECT … → rows", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:146-149", "backend/lab/p04_guardrails/sqlguard.py:94-108"]}, {"from": "guard.pipeline", "to": "labdb", "kind": "async", "text": "Risky actions (outbound email, P1 tickets, exports) are queued for human approval instead of running. Friction by design.", "data": "INSERT guard_approvals (pending)", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:213-219"]}, {"from": "guard.pipeline", "to": "api.app", "kind": "response", "text": "Output guardrails redact PII from the summary and defang hostile links, then return per-action decisions.", "data": "JSON {actions[status], summary, stages, trace_id}", "confidence": "verified", "evidence": ["backend/lab/p04_guardrails/pipeline.py:225-242"]}]}, {"name": "Agent mission scored on trajectory (MissionReplay)", "trigger": "User runs an agent on a scenario", "description": "A bounded tool-use loop where every tool call is a span, then the whole trajectory is scored.", "steps": [{"from": "api.app", "to": "ag.eval", "kind": "request", "text": "The route checks the scenario exists and that a provider is configured for the LLM agent.", "data": "{scenario, agent, temperature}", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/api.py:30-35"]}, {"from": "ag.eval", "to": "ag.agents", "kind": "request", "text": "run() creates a fresh simulator and opens an agent.run root span.", "data": "scenario id", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:146-153"]}, {"from": "ag.agents", "to": "core.providers", "kind": "request", "text": "Each turn the model gets the conversation plus nine tool schemas. The loop ends when it calls finish, hits max_steps, or replies twice without a tool.", "data": "messages + tools → tool_calls", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:112-115", "backend/lab/p06_agent_evals/agents.py:127-132"]}, {"from": "ag.agents", "to": "ag.sim", "kind": "request", "text": "Each tool call is validated and executed in the simulated world, which keeps changing (casualties rise, roads close). The Recorder wraps it in a tool span.", "data": "{tool, args} → observation | error", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:24-31"]}, {"from": "ag.agents", "to": "core.providers", "kind": "error", "text": "If the model emits invalid JSON tool arguments, the error is recorded and sent back so it can retry; 3 in a row aborts.", "data": "MalformedToolCall", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/agents.py:116-124"]}, {"from": "ag.eval", "to": "ag.eval", "kind": "internal", "text": "evaluate() scores the trajectory, not the final message: required-call recall, action precision, argument validity, safety violations, grounding and efficiency.", "data": "steps + final state → eval", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/evaluate.py:38-60", "backend/lab/p06_agent_evals/evaluate.py:115-134"]}, {"from": "ag.eval", "to": "labdb", "kind": "request", "text": "The run, its trace_id and evaluation are stored so TraceLens can show the same run as a span tree.", "data": "INSERT agent_runs", "confidence": "verified", "evidence": ["backend/lab/p06_agent_evals/evaluate.py:156-159"]}]}, {"name": "Feedback → gated release (SignalLoop)", "trigger": "A user rates an answer; later a reviewer gates a new release", "description": "The flywheel: collect, curate by review, freeze an eval set, and promote only when the gate passes.", "steps": [{"from": "fb.collect", "to": "rag.pipeline", "kind": "request", "text": "Questions are answered by the RAG pipeline using the production release's config.", "data": "question + release config", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:76-79"]}, {"from": "fb.collect", "to": "labdb", "kind": "request", "text": "The interaction is stored with a salted user hash, never the raw user id. Feedback text is PII-redacted.", "data": "fb_interactions, fb_feedback", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:55-57", "backend/lab/p05_feedback/service.py:98-106"]}, {"from": "fb.curate", "to": "labdb", "kind": "request", "text": "A reviewer approves feedback into a dataset. Injection-like corrections and training use without consent are refused.", "data": "INSERT fb_examples", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:172-181"]}, {"from": "fb.release", "to": "rag.eval", "kind": "request", "text": "The gate re-checks the frozen set's hash, then runs baseline and candidate on it.", "data": "frozen items → metrics for both", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:291-299"]}, {"from": "fb.release", "to": "api.app", "kind": "error", "text": "Promotion without a passing gate raises PermissionError, which the app turns into HTTP 403.", "data": "403 forbidden", "confidence": "verified", "evidence": ["backend/lab/p05_feedback/service.py:321-322", "backend/lab/api.py:34-36"]}]}, {"name": "LoRA training job (IntentForge)", "trigger": "User clicks Train", "description": "Training runs as a separate process so the API stays responsive; the UI polls a status file.", "steps": [{"from": "api.app", "to": "core.jobs", "kind": "request", "text": "The route builds CLI args and asks the job runner to spawn training. A second concurrent run is refused with 409.", "data": "{epochs, lr, r, alpha}", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/api.py:67-78"]}, {"from": "core.jobs", "to": "ft.train", "kind": "async", "text": "A new Python process starts; the API returns immediately with the run_id.", "data": "python -m lab.p02_finetune.train --run-id …", "confidence": "verified", "evidence": ["backend/lab/core/jobs.py:33-37"]}, {"from": "ft.train", "to": "ft.model", "kind": "request", "text": "The base model loads, a frozen weight is checksummed, and LoRA matrices are attached to the attention projections.", "data": "SmolLM2-135M + LoRA r=16", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/train.py:43-48"]}, {"from": "ft.train", "to": "files", "kind": "request", "text": "Progress is written to status.json every few steps (the UI polls /runs). At the end the adapter and proof the base didn't change are saved.", "data": "status.json, adapter/, metadata.json", "confidence": "verified", "evidence": ["backend/lab/p02_finetune/train.py:59-63", "backend/lab/p02_finetune/train.py:69-94"]}]}]}</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const D = JSON.parse(document.getElementById('archviz-data').textContent);
+const A = D.architecture || {};
+const flows = D.flows || [];
+const links = D.links || [];
+const PALETTE = [0x4fc3ff, 0xff9f43, 0xb36bff, 0x2ee6a6, 0xffd84d, 0xff5c8a, 0x5ce1e6, 0xa3e635, 0xff7ae0, 0x9aa3c7];
+const ASYNC = 0xff5cf0;
+const STEP_COLOR = { request: 0xffffff, response: 0x4fc3ff, internal: 0xd6b3ff, async: ASYNC, error: 0xff4d4d };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+
+const groups = new Map(D.groups.map((g, i) => [g.id, { ...g, color: g.color ? parseInt(g.color.slice(1), 16) : PALETTE[i % PALETTE.length] }]));
+const byId = new Map(D.nodes.map((n) => [n.id, n]));
+const children = (id) => D.nodes.filter((n) => n.parent === id);
+const topOf = (id) => byId.get(id)?.parent || id;
+const gid = (n) => n.group || byId.get(n.parent)?.group;
+const nameOf = (id) => esc(byId.get(id)?.label || id);
+const badge = (c) => c ? `<span class="badge b-${esc(c)}">${esc(c)}</span>` : '';
+
+// ---------- header + legend ----------
+document.title = `${D.project} · Archviz`;
+document.getElementById('title').textContent = D.project;
+document.getElementById('summary').textContent = D.summary || '';
+document.getElementById('stack').innerHTML = (D.stack || []).map((s) => `<span class="chip">${esc(s)}</span>`).join('');
+document.getElementById('legend').innerHTML =
+  [...groups.values()].map((g) => `<div><span class="dot" style="color:${hex(g.color)}"></span>${esc(g.name)}</div>`).join('') +
+  `<hr><div><span class="ln"></span>verified link</div>
+   <div><span class="ln" style="border-top-style:dashed;border-color:#ffd84d"></span>inferred link</div>
+   <div><span class="ln" style="border-color:${hex(ASYNC)}"></span>async (queue / event / job)</div>
+   <div>◉ has parts · double-click to explore</div><div>◆ external service</div><div>wireframe = planned, not built yet</div>`;
+
+// ---------- scene ----------
+const host = document.getElementById('scene');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x070914, 0.010);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+host.appendChild(renderer.domElement);
+const labels = new CSS2DRenderer();
+labels.setSize(innerWidth, innerHeight);
+Object.assign(labels.domElement.style, { position: 'absolute', top: 0, pointerEvents: 'none' });
+host.appendChild(labels.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const pl = new THREE.PointLight(0xffffff, 300); pl.position.set(0, 40, 30); scene.add(pl);
+
+// stars live on a far shell so none ever sits next to the camera
+const starPos = new Float32Array(1500 * 3);
+for (let i = 0; i < starPos.length; i += 3) {
+  const v = new THREE.Vector3().randomDirection().multiplyScalar(150 + Math.random() * 100);
+  starPos.set([v.x, v.y, v.z], i);
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x8090ff, size: 0.6, transparent: true, opacity: 0.6 })));
+
+// ---------- views: overview (top-level nodes) or one subsystem (its parts + other top-level nodes as ghosts) ----------
+const world = new THREE.Group(); scene.add(world);
+const LAYER_GAP = 10;
+let view = null;          // null = overview, else subsystem id
+const shown = new Map();  // id -> { mesh, glow, el, ghost }
+let linkObjs = [], labelEls = [];
+
+function addLabel(text, cls, parent, pos) {
+  const el = document.createElement('div'); el.className = cls; el.textContent = text;
+  const o = new CSS2DObject(el); o.position.copy(pos); parent.add(o); labelEls.push(el);
+  return el;
+}
+
+function addNode(n, pos, ghost) {
+  const color = groups.get(gid(n))?.color ?? 0x9aa3c7;
+  const kids = children(n.id).length;
+  const size = n.kind === 'subsystem' ? 1.3 + Math.min(1.2, kids * 0.12) : 0.8 + Math.min(1, (n.weight || 1) * 0.2);
+  const geo = n.kind === 'external' ? new THREE.OctahedronGeometry(size * 1.15) : new THREE.SphereGeometry(size, 32, 32);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.7, roughness: 0.3, transparent: true, flatShading: n.kind === 'external', wireframe: n.status === 'planned' }));
+  mesh.position.copy(pos);
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(size * 1.9, 24, 24),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false }));
+  mesh.add(glow);
+  mesh.userData = n;
+  world.add(mesh);
+  const el = addLabel((kids ? '◉ ' : '') + (n.label || n.id), 'label' + (ghost ? ' ghost' : ''), mesh, new THREE.Vector3(0, size + 1, 0));
+  shown.set(n.id, { mesh, glow, el, ghost });
+}
+
+// Which visible node stands for `id` in the current view (itself, or its subsystem), or null.
+function vid(id) {
+  if (shown.has(id)) return id;
+  const t = topOf(id);
+  return shown.has(t) ? t : null;
+}
+
+function build(v) {
+  labelEls.forEach((e) => e.remove()); labelEls = [];
+  world.clear(); shown.clear(); linkObjs = [];
+  view = v;
+  const inner = v ? children(v) : D.nodes.filter((n) => !n.parent);
+  const used = [...groups.keys()].filter((g) => inner.some((n) => gid(n) === g));
+  let maxR = 6;
+  used.forEach((g, li) => {
+    const ns = inner.filter((n) => gid(n) === g);
+    const y = ((used.length - 1) / 2 - li) * LAYER_GAP;
+    const r = Math.max(6, ns.length * 2.4);
+    maxR = Math.max(maxR, r);
+    const color = groups.get(g).color;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.15, r + 0.15, 96),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = y; world.add(ring);
+    addLabel(groups.get(g).name, 'layerTitle', world, new THREE.Vector3(r + 3, y, 0)).style.color = hex(color);
+    ns.forEach((n, i) => {
+      const a = (i / ns.length) * Math.PI * 2 + li * 0.6;
+      addNode(n, new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r), false);
+    });
+  });
+  if (v) {
+    const others = D.nodes.filter((n) => !n.parent && n.id !== v);
+    const R = maxR + 16;
+    others.forEach((n, i) => {
+      const a = (i / others.length) * Math.PI * 2;
+      addNode(n, new THREE.Vector3(Math.cos(a) * R, 0, Math.sin(a) * R), true);
+    });
+  }
+  // Links are drawn between whatever represents each end in this view; duplicates merge.
+  const agg = new Map();
+  for (const l of links) {
+    const a = vid(l.from), b = vid(l.to);
+    if (!a || !b || a === b) continue;
+    if (v && byId.get(a)?.parent !== v && byId.get(b)?.parent !== v) continue;
+    const k = a + '>' + b;
+    const e = agg.get(k) || { from: a, to: b, async: false, inferred: true };
+    e.async ||= !!l.async;
+    e.inferred &&= l.confidence === 'inferred';
+    agg.set(k, e);
+  }
+  for (const e of agg.values()) {
+    const pa = shown.get(e.from).mesh.position, pb = shown.get(e.to).mesh.position;
+    const mid = pa.clone().lerp(pb, 0.5); mid.y += 2;
+    const geo = new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(pa, mid, pb).getPoints(32));
+    const color = e.async ? ASYNC : e.inferred ? 0xffd84d : shown.get(e.from).mesh.material.color;
+    const mat = e.inferred
+      ? new THREE.LineDashedMaterial({ color, dashSize: 0.6, gapSize: 0.45, transparent: true, opacity: 0.35 })
+      : new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.35 });
+    const line = new THREE.Line(geo, mat);
+    if (e.inferred) line.computeLineDistances();
+    line.userData = e; world.add(line); linkObjs.push(line);
+  }
+  document.getElementById('crumbs').innerHTML = v
+    ? `<button class="linkbtn" data-up>System overview</button> › <b>${nameOf(v)}</b><div class="hint">inside ${nameOf(v)} · faded nodes are the rest of the system</div>`
+    : `<b>System overview</b><div class="hint">drag = rotate · scroll = zoom · click = explain · double-click ◉ = go inside</div>`;
+  highlight(null);
+  if (flow) setStep(step);
+}
+
+// ---------- camera ----------
+let fly = null;
+function frame(instant) {
+  const box = new THREE.Box3();
+  for (const v of shown.values()) box.expandByObject(v.mesh);
+  const c = box.getCenter(new THREE.Vector3());
+  const dist = Math.max(30, box.getSize(new THREE.Vector3()).length() * 1.05);
+  const p = new THREE.Vector3(c.x + dist * 0.6, c.y + dist * 0.45, c.z + dist * 0.75);
+  if (instant) { camera.position.copy(p); controls.target.copy(c); }
+  else fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: p, t1: c, start: performance.now() };
+}
+function enter(v) { build(v); frame(); controls.autoRotate = false; }
+
+// dim everything except the given visible ids (null = show all)
+function highlight(ids) {
+  for (const [id, v] of shown) {
+    const on = !ids || ids.has(id);
+    const base = v.ghost ? 0.25 : 0.7;
+    v.mesh.material.emissiveIntensity = on ? (ids ? 1.4 : base) : 0.08;
+    v.mesh.material.opacity = on ? (v.ghost && !ids ? 0.5 : 1) : 0.25;
+    v.glow.material.opacity = on ? (ids ? 0.25 : 0.12) : 0.02;
+    v.el.classList.toggle('dim', !on);
+  }
+  for (const line of linkObjs) {
+    const on = !ids || (ids.has(line.userData.from) && ids.has(line.userData.to));
+    line.material.opacity = on ? (ids ? 0.9 : 0.35) : 0.05;
+  }
+}
+
+// ---------- details panel ----------
+const details = document.getElementById('details');
+const section = (title, body) => body ? `<h3>${title}</h3>${body}` : '';
+const list = (items, fn = esc) => items?.length ? `<ul>${items.map(fn).join('')}</ul>` : '';
+const li = (x) => `<li>${x}</li>`;
+const evidence = (ev) => list(ev, (e) => `<li class="ev">${esc(e)}</li>`);
+const inferredNote = (o) => o.confidence === 'inferred' && o.reason ? `<p class="why-inferred"><b>Why this is inferred:</b> ${esc(o.reason)}</p>` : '';
+
+function openPanel(html) {
+  details.innerHTML = `<button class="close" aria-label="Close">×</button>${html}`;
+  details.style.display = 'block';
+  details.scrollTop = 0;
+}
+
+function linkItem(l, other, via) {
+  return li(`<button class="linkbtn" data-node="${esc(l[other])}">${nameOf(l[other])}</button>${via}
+    <span class="kind">${esc(l.kind || '')}${l.async ? ' · async' : ''}</span>${l.label ? ' — ' + esc(l.label) : ''}
+    ${l.confidence === 'inferred' ? badge('inferred') + (l.reason ? `<span class="kind">${esc(l.reason)}</span>` : '') : ''}
+    ${l.evidence?.length ? `<div class="ev">${l.evidence.map(esc).join(' · ')}</div>` : ''}`);
+}
+
+function showNode(n) {
+  const kids = children(n.id);
+  const fam = new Set([n.id, ...kids.map((k) => k.id)]);
+  const out = links.filter((l) => fam.has(l.from) && !fam.has(l.to));
+  const inc = links.filter((l) => fam.has(l.to) && !fam.has(l.from));
+  const via = (l, end) => l[end] !== n.id ? `<span class="kind"> (via ${nameOf(l[end])})</span>` : '';
+  const inFlows = flows.map((f, i) => [f, i]).filter(([f]) => f.steps.some((s) => fam.has(s.from) || fam.has(s.to)));
+  const d = n.data || {};
+  const dataHtml = ['owns', 'receives', 'produces'].filter((k) => d[k]?.length)
+    .map((k) => li(`<b>${k[0].toUpperCase() + k.slice(1)}:</b> ${d[k].map(esc).join('; ')}`)).join('');
+  const g = groups.get(gid(n));
+  openPanel(`
+    <h2>${esc(n.label || n.id)} ${badge(n.confidence || 'verified')}${n.status && n.status !== 'implemented' ? badge(n.status) : ''}</h2>
+    <div class="path">${esc(n.kind)}${g ? ' · ' + esc(g.name) : ''}${n.parent ? ' · inside ' + nameOf(n.parent) : ''}${n.path ? ' · ' + esc(n.path) : ''}</div>
+    <p>${esc(n.what)}</p>
+    ${n.analogy ? `<p class="analogy">${esc(n.analogy)}</p>` : ''}
+    ${inferredNote(n)}
+    ${section('Why it exists', n.why ? `<p>${esc(n.why)}</p>` : '')}
+    ${section('Responsibilities', list(n.responsibilities))}
+    ${section('Data', dataHtml ? `<ul>${dataHtml}</ul>` : '')}
+    ${section(`Inside (${kids.length})`, kids.length ? list(kids, (k) => li(`<button class="linkbtn" data-node="${esc(k.id)}">${esc(k.label || k.id)}</button> — <span class="kind">${esc(k.what)}</span>`))
+      + (view !== n.id ? `<button data-explore="${esc(n.id)}">Explore inside →</button>` : '') : '')}
+    ${section('Depends on / talks to', list(out, (l) => linkItem(l, 'to', via(l, 'from'))))}
+    ${section('Used by', list(inc, (l) => linkItem(l, 'from', via(l, 'to'))))}
+    ${section('Part of these workflows', list(inFlows, ([f, i]) => li(`<button class="linkbtn" data-flow="${i}">▶ ${esc(f.name)}</button>`)))}
+    ${section('Evidence', evidence(n.evidence))}`);
+}
+
+function showAbout() {
+  openPanel(`
+    <h2>About this system</h2>
+    ${A.style ? `<div class="path">${esc(A.style)}</div>` : ''}
+    <p>${esc(A.summary || D.summary || '')}</p>
+    ${section('What gets deployed / run', list(A.deployables, (d) => li(`<b>${esc(d.name)}</b> — ${esc(d.what)}${d.evidence?.length ? `<div class="ev">${d.evidence.map(esc).join(' · ')}</div>` : ''}`)))}
+    ${section('Parts of the system', list(D.nodes.filter((n) => !n.parent), (n) => li(`<button class="linkbtn" data-node="${esc(n.id)}">${esc(n.label || n.id)}</button> <span class="kind">${esc(n.kind)}</span> — ${esc(n.what)}`)))}
+    ${section('Groups', list([...groups.values()], (g) => li(`<b style="color:${hex(g.color)}">${esc(g.name)}</b>${g.what ? ' — ' + esc(g.what) : ''}`)))}
+    ${section('Workflows', list(flows.map((f, i) => [f, i]), ([f, i]) => li(`<button class="linkbtn" data-flow="${i}">▶ ${esc(f.name)}</button>${f.description ? ' — ' + esc(f.description) : ''}`)))}
+    ${section("Couldn't determine from the code", A.unknowns?.length ? list(A.unknowns) : '<p class="kind">Nothing flagged.</p>')}
+    <h3>How to read this</h3>
+    <p class="kind">Every claim cites the file and line it came from. ${badge('verified')} means the cited code shows it directly. ${badge('inferred')} means it's a reasoned guess (the reason is shown). ${badge('optional')} parts only run when a setting turns them on. ${badge('planned')} parts (wireframes) are mentioned or stubbed but not built yet. Anything that couldn't be worked out is listed above instead of being drawn.</p>`);
+}
+
+function selectNode(id) {
+  const n = byId.get(id); if (!n) return;
+  if (!shown.has(id)) enter(n.parent || null);
+  showNode(n);
+  const fam = new Set([id, ...children(id).map((k) => k.id)]);
+  const ids = new Set([vid(id)]);
+  for (const l of links) if (fam.has(l.from) || fam.has(l.to)) { ids.add(vid(l.from)); ids.add(vid(l.to)); }
+  ids.delete(null);
+  highlight(ids);
+}
+
+details.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.classList.contains('close')) { details.style.display = 'none'; highlight(null); }
+  else if (b.dataset.node) selectNode(b.dataset.node);
+  else if (b.dataset.explore) { enter(b.dataset.explore); showNode(byId.get(b.dataset.explore)); }
+  else if (b.dataset.flow) { sel.value = b.dataset.flow; sel.onchange(); play(); }
+});
+document.getElementById('crumbs').addEventListener('click', (e) => { if (e.target.closest('[data-up]')) { enter(null); showAbout(); } });
+document.getElementById('aboutBtn').onclick = showAbout;
+document.getElementById('reset').onclick = () => { stopFlow(); highlight(null); frame(); controls.autoRotate = true; };
+
+// ---------- picking ----------
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  return ray.intersectObjects([...shown.values()].map((v) => v.mesh), false)[0]?.object;
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; controls.autoRotate = false; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return; // was a drag
+  const hit = pick(e);
+  if (hit) selectNode(hit.userData.id);
+});
+renderer.domElement.addEventListener('dblclick', (e) => {
+  const n = pick(e)?.userData;
+  if (n && children(n.id).length && view !== n.id) { enter(n.id); showNode(n); }
+});
+renderer.domElement.addEventListener('pointermove', (e) => { renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab'; });
+
+// ---------- workflows ----------
+const sel = document.getElementById('flowSel');
+sel.innerHTML = flows.map((f, i) => `<option value="${i}">${esc(f.name)}</option>`).join('') || '<option>No workflows detected</option>';
+const caption = document.getElementById('caption');
+const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const particle = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 16), particleMat);
+const particleLight = new THREE.PointLight(0xffffff, 40, 12);
+particle.add(particleLight);
+particle.visible = false; scene.add(particle);
+const trail = [];
+
+let flow = null, step = -1, stepStart = 0, playing = false;
+const STEP_MS = 3200;
+const playBtn = document.getElementById('play');
+
+function describeFlow() {
+  const f = flows[+sel.value];
+  caption.innerHTML = f
+    ? `<span class="step">${esc(f.name)}${f.trigger ? ' · starts when: ' + esc(f.trigger) : ''}</span>${esc(f.description || '')}<div class="kind" style="margin-top:4px">Press Play to watch it travel through the system.</div>`
+    : 'No workflows were detected.';
+}
+
+function setStep(i) {
+  const f = flows[+sel.value]; if (!f) return;
+  flow = f; step = Math.max(0, Math.min(i, f.steps.length - 1)); stepStart = performance.now();
+  const s = f.steps[step];
+  const k = s.kind || 'request';
+  caption.innerHTML = `<span class="step">${badge(k)}Step ${step + 1} / ${f.steps.length} · ${nameOf(s.from)} → ${nameOf(s.to)}</span>
+    ${esc(s.text)}
+    ${s.data ? `<div class="carries"><b>Carries:</b> ${esc(s.data)}</div>` : ''}
+    ${s.confidence === 'inferred' ? `<div class="carries">${badge('inferred')}${esc(s.reason || '')}</div>` : ''}
+    ${s.evidence?.length ? `<div class="ev">${s.evidence.map(esc).join(' · ')}</div>` : ''}`;
+  const ids = new Set(f.steps.slice(0, step + 1).flatMap((x) => [vid(x.from), vid(x.to)]));
+  ids.delete(null);
+  highlight(ids);
+  particleMat.color.setHex(STEP_COLOR[k] ?? 0xffffff);
+  particleLight.color.setHex(STEP_COLOR[k] ?? 0xffffff);
+  particle.visible = true;
+}
+function stopFlow() { playing = false; flow = null; playBtn.textContent = '▶ Play'; particle.visible = false; trail.forEach((t) => scene.remove(t)); trail.length = 0; }
+function play() { controls.autoRotate = false; playing = true; playBtn.textContent = '■ Stop'; setStep(0); }
+playBtn.onclick = () => playing ? stopFlow() : play();
+const pause = () => { playing = false; playBtn.textContent = '▶ Play'; };
+document.getElementById('next').onclick = () => { pause(); setStep(flow ? step + 1 : 0); };
+document.getElementById('prev').onclick = () => { pause(); setStep(flow ? step - 1 : 0); };
+sel.onchange = () => { stopFlow(); highlight(null); describeFlow(); };
+describeFlow();
+
+function updateParticle(now) {
+  if (!flow || !particle.visible) return;
+  const s = flow.steps[step], a = shown.get(vid(s.from)), b = shown.get(vid(s.to));
+  if (a && b) {
+    const t = Math.min(1, (now - stepStart) / (STEP_MS * 0.6));
+    const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    if (a === b) { // work inside one place: orbit it
+      const ang = e * Math.PI * 4;
+      particle.position.copy(a.mesh.position).add(new THREE.Vector3(Math.cos(ang) * 2.2, Math.sin(e * Math.PI) * 1.5, Math.sin(ang) * 2.2));
+    } else {
+      const mid = a.mesh.position.clone().lerp(b.mesh.position, 0.5); mid.y += 2;
+      new THREE.QuadraticBezierCurve3(a.mesh.position, mid, b.mesh.position).getPoint(e, particle.position);
+    }
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshBasicMaterial({ color: particleMat.color.clone(), transparent: true, opacity: 0.8 }));
+    dot.position.copy(particle.position); scene.add(dot); trail.push(dot);
+    while (trail.length > 40) scene.remove(trail.shift());
+    trail.forEach((d, i) => (d.material.opacity = (i / trail.length) * 0.7));
+  }
+  if (playing && now - stepStart > STEP_MS) {
+    if (step < flow.steps.length - 1) setStep(step + 1);
+    else { playing = false; playBtn.textContent = '▶ Replay'; }
+  }
+}
+
+// ---------- start + loop ----------
+build(null);
+frame(true);
+showAbout();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); labels.setSize(innerWidth, innerHeight);
+});
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduceMotion) controls.autoRotate = false;
+renderer.setAnimationLoop((now) => {
+  if (fly) {
+    const t = Math.min(1, (now - fly.start) / (reduceMotion ? 1 : 900));
+    const e = 1 - (1 - t) ** 3;
+    camera.position.lerpVectors(fly.p0, fly.p1, e);
+    controls.target.lerpVectors(fly.t0, fly.t1, e);
+    if (t === 1) fly = null;
+  }
+  const pulse = reduceMotion ? 1 : 1 + Math.sin(now / 400) * 0.08;
+  for (const v of shown.values()) v.glow.scale.setScalar(pulse);
+  updateParticle(now);
+  controls.update();
+  renderer.render(scene, camera);
+  labels.render(scene, camera);
+});
+</script>
+<script>
+  // If the CDN module never loads, show a friendly message instead of a black screen.
+  setTimeout(() => { if (!document.querySelector('#scene canvas')) document.getElementById('err').style.display = 'grid'; }, 6000);
+</script>
+</body>
+</html>
