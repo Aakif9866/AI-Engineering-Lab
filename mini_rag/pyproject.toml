@@ -1,0 +1,17 @@
+[project]
+name = "mini-rag"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastembed>=0.9.1",
+    "httpx>=0.28.1",
+    "numpy>=2.5.4",
+    "streamlit>=1.66.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+[tool.pytest.ini_options]
+pythonpath = ["."]
