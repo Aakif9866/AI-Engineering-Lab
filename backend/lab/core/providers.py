@@ -6,13 +6,14 @@ deepseek-v4-pro); Groq base https://api.groq.com/openai/v1 (production: openai/g
 """
 import json
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
 
 from . import tracing
-from .config import env, offline
+from .config import env, offline, public
 from .redaction import scrub_secrets
 
 PROVIDERS = {
@@ -67,8 +68,12 @@ class ChatResult:
     trace_id: str | None = None
 
 
+# Keys a visitor supplied for this request only (X-Deepseek-Key / X-Groq-Key headers, set in lab.api).
+request_keys: ContextVar[dict] = ContextVar("request_keys", default={})
+
+
 def _key(name: str) -> str:
-    k = env(PROVIDERS[name]["key_env"])
+    k = request_keys.get().get(name) or ("" if public() else env(PROVIDERS[name]["key_env"]))
     return "" if k.startswith("your-") else k
 
 
@@ -94,6 +99,7 @@ def default_provider() -> str | None:
 def status() -> dict:
     return {
         "offline_forced": offline(),
+        "public": public(),
         "default_provider": default_provider(),
         "providers": [
             {"name": n, "configured": bool(_key(n)), "usable": available(n), "model": model_for(n),

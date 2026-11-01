@@ -56,6 +56,22 @@ cd frontend && npm install && npm run dev
 
 ---
 
+## Deploy (Vercel)
+
+Import the repo in Vercel (or run `vercel`); `vercel.json` builds the UI from `frontend/` and serves the API from `api/index.py` on the same domain. Set the non-secret `LAB_*` variables in the Vercel project settings if you want non-defaults.
+
+**API keys on a public deploy.** On Vercel (or anywhere with `LAB_PUBLIC=1`) the server ignores `DEEPSEEK_API_KEY` / `GROQ_API_KEY`, even if set, so visitors can never spend yours. For live runs, each visitor (you included) pastes their own key under **Keys** in the header. It stays in that browser's localStorage and is sent per request as `X-Deepseek-Key` / `X-Groq-Key`; the server keeps it only for that request. Locally, `.env` keys work as before. Every other feature runs offline with no key.
+
+**Privacy and security on a public deploy.**
+- Visitor text is never stored in traces: public mode forces `LAB_CAPTURE_CONTENT` off (length + hash only). Feedback and guardrail logs redact detected PII and secrets before saving.
+- State is shared by all visitors and wiped on restart; the UI footer says so and asks visitors not to enter personal data.
+- No cookies, analytics or third-party requests. `localStorage` holds only the theme and the visitor's own keys.
+- `vercel.json` sets a strict CSP (`connect-src 'self'`, so injected script can't send stored keys elsewhere), `nosniff`, `no-referrer`, frame denial, and `no-store` on `/api`. The CSP pins the sha256 of the inline theme script in `frontend/index.html`: update it if you change that script.
+
+Limits of the serverless deploy: core deps only (hash embedder, no IntentForge training), and runtime state (traces, feedback, caches) lives in `/tmp`, so it resets on cold starts. For persistent state, run the backend on a host with a disk and set `LAB_VAR_DIR`.
+
+---
+
 ## Configuration (`.env` at the repo root)
 
 | Variable | Default | Purpose |

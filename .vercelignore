@@ -1,0 +1,12 @@
+.env
+**/.venv
+**/node_modules
+**/__pycache__
+backend/var
+backend/tests
+frontend/dist
+mini_rag
+archviz-out
+docs
+*.pdf
+learn.txt

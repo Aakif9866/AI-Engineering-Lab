@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Status, useApi } from "../api";
+import { getKey, KEY_PROVIDERS, setKey, Status, useApi } from "../api";
 import { Project, PROJECTS } from "../projects";
 import { Badge, Tabs } from "./ui";
 
@@ -30,16 +30,43 @@ function ProviderPills({ status }: { status: Status | null }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {live.length === 0 ? (
-        <Badge tone="amber" title={status.offline_forced ? "LAB_OFFLINE=1" : "No API key configured"}>● offline mode</Badge>
+        <Badge tone="amber" title={status.offline_forced ? "LAB_OFFLINE=1" : "No API key: add your own under Keys for live runs"}>● offline mode</Badge>
       ) : (
         <Badge tone="teal">● live: {live.map((p) => p.name).join(", ")}</Badge>
       )}
       {status.providers.map((p) => (
-        <Badge key={p.name} tone={p.usable ? "teal" : "gray"} title={p.usable ? `model ${p.model}` : "no key set in .env"}>
+        <Badge key={p.name} tone={p.usable ? "teal" : "gray"} title={p.usable ? `model ${p.model}` : status.public ? "add your key under Keys" : "no key set in .env or under Keys"}>
           {p.name} {p.usable ? "✓" : "–"}
         </Badge>
       ))}
     </div>
+  );
+}
+
+/** Visitors bring their own provider keys; they stay in this browser and go only to this app's API. */
+function KeysMenu({ onSave }: { onSave: () => void }) {
+  const [vals, setVals] = useState(() => Object.fromEntries(KEY_PROVIDERS.map((p) => [p, getKey(p)])));
+  return (
+    <details className="relative">
+      <summary className="btn !min-h-[44px] cursor-pointer list-none !px-3">Keys</summary>
+      <form
+        className="absolute right-0 z-30 mt-2 w-80 space-y-2 rounded-lg border border-gray-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-ink-pop"
+        onSubmit={(e) => { e.preventDefault(); KEY_PROVIDERS.forEach((p) => setKey(p, vals[p].trim())); onSave(); }}
+      >
+        <p className="text-xs muted">Live runs need your own API key. It is saved only in this browser and sent with your requests; the server never stores it. Live runs send your text to the provider you pick (DeepSeek or Groq) under that provider's terms and bill your account. Everything else works without a key.</p>
+        {KEY_PROVIDERS.map((p) => (
+          <label key={p} className="block text-xs font-semibold capitalize">
+            {p}
+            <input type="password" autoComplete="off" className="mt-1 w-full rounded border border-gray-300 bg-transparent px-2 py-1.5 font-mono text-xs font-normal dark:border-white/20"
+              placeholder={`${p} API key`} value={vals[p]} onChange={(e) => setVals({ ...vals, [p]: e.target.value })} />
+          </label>
+        ))}
+        <div className="flex gap-2">
+          <button className="btn" type="submit">Save</button>
+          <button className="btn" type="button" onClick={() => { KEY_PROVIDERS.forEach((p) => setKey(p, "")); setVals(Object.fromEntries(KEY_PROVIDERS.map((p) => [p, ""]))); onSave(); }}>Clear</button>
+        </div>
+      </form>
+    </details>
   );
 }
 
@@ -81,6 +108,7 @@ export function Layout() {
           <button className="btn !min-h-[44px] !px-3 lg:hidden" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Toggle navigation">☰</button>
           <NavLink to="/" className="whitespace-nowrap bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-lg font-bold text-transparent">AI Engineering Lab</NavLink>
           <div className="ml-auto hidden sm:block"><ProviderPills status={status} /></div>
+          <KeysMenu onSave={reload} />
           <button className="btn !min-h-[44px] !px-3" onClick={() => setDark(!dark)} aria-label="Toggle dark mode">{dark ? "☀" : "☾"}</button>
         </div>
         <div className="px-3 pb-2 sm:hidden"><ProviderPills status={status} /></div>
@@ -90,6 +118,11 @@ export function Layout() {
         {menu && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMenu(false)}><div className="h-full w-72 overflow-y-auto bg-white p-3 shadow-xl dark:bg-ink-pop" onClick={(e) => e.stopPropagation()}>{nav}</div></div>}
         <main key={loc.pathname} className="min-w-0 flex-1 motion-safe:animate-rise"><Outlet /></main>
       </div>
+      {status?.public && (
+        <footer className="mx-auto max-w-7xl px-3 pb-6 text-xs muted">
+          Public demo. Don't enter personal or confidential data: feedback, guardrail logs and traces are shared with other visitors (prompt text in traces is stored only as length + hash, and detected PII and secrets are redacted) and everything is wiped when the server restarts. No cookies or analytics; your theme and keys stay in your browser's local storage.
+        </footer>
+      )}
     </StatusCtx.Provider>
   );
 }

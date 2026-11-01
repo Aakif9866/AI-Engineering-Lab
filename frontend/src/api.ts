@@ -6,10 +6,21 @@ export class ApiError extends Error {
   }
 }
 
+/** Visitor-supplied provider keys: kept only in this browser, sent with each request, never stored server-side. */
+export const KEY_PROVIDERS = ["deepseek", "groq"] as const;
+export function getKey(p: string): string {
+  try { return localStorage.getItem(`key:${p}`) ?? ""; } catch { return ""; }
+}
+export function setKey(p: string, v: string) {
+  try { v ? localStorage.setItem(`key:${p}`, v) : localStorage.removeItem(`key:${p}`); } catch { /* storage unavailable */ }
+}
+
 export async function api<T = any>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+  const headers: Record<string, string> = opts.body !== undefined ? { "Content-Type": "application/json" } : {};
+  for (const p of KEY_PROVIDERS) if (getKey(p)) headers[`X-${p[0].toUpperCase()}${p.slice(1)}-Key`] = getKey(p);
   const res = await fetch(path, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
-    headers: opts.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
   const text = await res.text();
@@ -72,6 +83,7 @@ export function useAction<A extends any[], T>(fn: (...a: A) => Promise<T>) {
 
 export type Status = {
   offline_forced: boolean;
+  public: boolean;
   default_provider: string | null;
   providers: { name: string; configured: boolean; usable: boolean; model: string; price: any }[];
   embedder: string;

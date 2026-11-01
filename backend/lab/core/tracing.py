@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
-from .config import env, flag
+from .config import env, flag, public
 from .db import db, ensure, rows
 from .redaction import redact_pii, scrub_secrets
 
@@ -87,7 +87,7 @@ def _protect(value, capture: bool):
 
 
 def _clean(attrs: dict) -> dict:
-    capture = flag("LAB_CAPTURE_CONTENT")
+    capture = flag("LAB_CAPTURE_CONTENT") and not public()  # shared traces: never keep visitor text
     out = {}
     for k, v in attrs.items():
         if k in CONTENT_KEYS:
