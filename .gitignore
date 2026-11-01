@@ -13,3 +13,5 @@ backend/var/
 
 # personal notes
 learn.txt
+.vercel
+.env*
