@@ -1,0 +1,10 @@
+node_modules
+frontend/node_modules
+.venv
+backend/.venv
+backend/var
+backend/tests
+archviz-out
+docs
+mini_rag
+.env
